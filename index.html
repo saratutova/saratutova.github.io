@@ -146,7 +146,10 @@
         
         <div id="instructions">
             <h3>Krosno AR Experience</h3>
-            <p>Point your camera at a flat surface and tap "Place Model" to place a 3D model.</p>
+            <p>1. Allow camera access when prompted</p>
+            <p>2. Select a 3D model from the top-right menu</p>
+            <p>3. Click "Place Model" to add it to the QR marker</p>
+            <p>4. Point your camera at a Hiro QR code to see the 3D model</p>
             <p><strong>Note:</strong> This requires HTTPS and camera permission.</p>
             <button class="ui-button" onclick="hideInstructions()">Got it!</button>
         </div>
@@ -170,22 +173,30 @@
         <button id="force-camera" class="ui-button" onclick="forceCameraReady()" style="bottom: 80px; left: 50%; transform: translateX(-50%); background: rgba(255, 165, 0, 0.8);">
             Force Camera Ready
         </button>
+        
+        <button id="qr-link" class="ui-button" onclick="openQRCode()" style="bottom: 180px; left: 50%; transform: translateX(-50%); background: rgba(0, 123, 255, 0.8);">
+            Get QR Code
+        </button>
     </div>
 
     <a-scene
         vr-mode-ui="enabled: false"
+        arjs="sourceType: webcam; videoTexture: true; debugUIEnabled: false;"
+        renderer="logarithmicDepthBuffer: true;"
         embedded
         arjs-look-controls="smoothingFactor: 0.1">
 
         <!-- Camera -->
-        <a-camera position="0 0 0"></a-camera>
+        <a-camera gps-camera rotation-reader></a-camera>
 
         <!-- Lighting -->
         <a-light type="ambient" color="#ffffff" intensity="0.6"></a-light>
         <a-light type="directional" color="#ffffff" intensity="0.8" position="0 1 0"></a-light>
 
-        <!-- Simple background -->
-        <a-sky color="#87CEEB"></a-sky>
+        <!-- QR Code Marker for AR -->
+        <a-marker preset="hiro" emitevents="true" id="marker">
+            <!-- 3D objects will be placed here when marker is detected -->
+        </a-marker>
 
     </a-scene>
 
@@ -212,7 +223,12 @@
             document.querySelectorAll('.model-option').forEach(option => {
                 option.classList.remove('selected');
             });
-            event.target.classList.add('selected');
+            
+            // Find the clicked element and add selected class
+            const clickedElement = event.target;
+            clickedElement.classList.add('selected');
+            
+            console.log('Model selected:', modelType);
         }
 
         function placeModel() {
@@ -222,6 +238,13 @@
             }
 
             console.log('placeModel called for:', selectedModel);
+            
+            // Get the marker element
+            const marker = document.querySelector('#marker');
+            if (!marker) {
+                alert('QR marker not found. Please make sure the marker is set up correctly.');
+                return;
+            }
             
             // Create model based on selection
             let model;
@@ -251,8 +274,8 @@
                     break;
             }
             
-            // Place model closer to camera for better visibility
-            model.setAttribute('position', '0 0 -1'); // 1 unit in front of camera
+            // Place model on the marker (slightly above it)
+            model.setAttribute('position', '0 0.5 0'); // Above the marker
             if (selectedModel !== 'nortec') {
                 model.setAttribute('animation', 'property: rotation; to: 0 360 0; dur: 5000; loop: true');
             }
@@ -267,33 +290,14 @@
                 }, 200);
             });
             
-            // Add to camera so it follows the camera
-            const camera = document.querySelector('a-camera');
-            camera.appendChild(model);
+            // Add to marker so it appears when QR code is detected
+            marker.appendChild(model);
             
-            // Add placement effect
-            const placementEffect = document.createElement('a-ring');
-            placementEffect.setAttribute('position', '0 0 -1');
-            placementEffect.setAttribute('radius-inner', '0.5');
-            placementEffect.setAttribute('radius-outer', '1');
-            placementEffect.setAttribute('color', '#ffffff');
-            placementEffect.setAttribute('opacity', '0.8');
-            placementEffect.setAttribute('animation', 'property: scale; to: 2 2 2; dur: 1000; easing: easeOutQuad');
-            
-            camera.appendChild(placementEffect);
-            
-            // Remove effect after animation
-            setTimeout(() => {
-                if (placementEffect.parentNode) {
-                    camera.removeChild(placementEffect);
-                }
-            }, 1000);
-            
-            console.log('Model placed:', selectedModel, 'at position 0 0 -1');
-            console.log('Camera children count:', camera.children.length);
+            console.log('Model placed on marker:', selectedModel);
+            console.log('Marker children count:', marker.children.length);
             
             // Show success message
-            alert(`Model placed successfully! You should see a ${selectedModel} in front of your camera.`);
+            alert(`Model placed successfully! Point your camera at a Hiro QR code to see the ${selectedModel}.`);
         }
 
         // Handle AR session start
@@ -406,6 +410,17 @@
             document.getElementById('camera-status').textContent = 'AR: Error - Check HTTPS';
         });
 
+        // Handle marker detection events
+        document.addEventListener('markerFound', function(event) {
+            console.log('QR Marker detected!');
+            document.getElementById('camera-status').textContent = 'Camera: QR Code Detected';
+        });
+
+        document.addEventListener('markerLost', function(event) {
+            console.log('QR Marker lost');
+            document.getElementById('camera-status').textContent = 'Camera: Ready';
+        });
+
         // Add touch gesture support for mobile
         let touchStartY = 0;
         document.addEventListener('touchstart', function(event) {
@@ -484,6 +499,12 @@
 
         // Check canvas size periodically
         setInterval(fixCanvasSize, 1000);
+
+        // Open QR code for testing
+        function openQRCode() {
+            window.open('https://jeromeetienne.github.io/AR.js/data/images/HIRO.jpg', '_blank');
+            alert('Hiro QR code opened in new tab. Print it or display it on another device to test AR.');
+        }
 
         // Check if running on HTTPS
         if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
