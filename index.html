@@ -172,7 +172,7 @@
 
     <a-scene
         vr-mode-ui="enabled: false"
-        arjs="sourceType: webcam; videoTexture: true; debugUIEnabled: false; detectionMode: mono_and_matrix; matrixCodeType: 3x3; sourceWidth: 1280; sourceHeight: 960; displayWidth: 1280; displayHeight: 960;"
+        arjs="sourceType: webcam; videoTexture: true; debugUIEnabled: false;"
         renderer="logarithmicDepthBuffer: true;"
         embedded
         arjs-look-controls="smoothingFactor: 0.1">
@@ -183,11 +183,6 @@
         <!-- Lighting -->
         <a-light type="ambient" color="#ffffff" intensity="0.6"></a-light>
         <a-light type="directional" color="#ffffff" intensity="0.8" position="0 1 0"></a-light>
-
-        <!-- Surface detection indicator -->
-        <a-marker-camera preset="hiro" emitevents="true" id="markerCamera">
-            <!-- This will be used for surface detection -->
-        </a-marker-camera>
 
     </a-scene>
 
@@ -223,7 +218,7 @@
                 return;
             }
 
-            const scene = document.querySelector('a-scene');
+            console.log('placeModel called for:', selectedModel);
             
             // Create model based on selection
             let model;
@@ -253,8 +248,8 @@
                     break;
             }
             
-            // Place model at a fixed position in front of camera
-            model.setAttribute('position', '0 0 -2'); // 2 units in front of camera
+            // Place model closer to camera for better visibility
+            model.setAttribute('position', '0 0 -1'); // 1 unit in front of camera
             if (selectedModel !== 'nortec') {
                 model.setAttribute('animation', 'property: rotation; to: 0 360 0; dur: 5000; loop: true');
             }
@@ -275,7 +270,7 @@
             
             // Add placement effect
             const placementEffect = document.createElement('a-ring');
-            placementEffect.setAttribute('position', '0 0 -2');
+            placementEffect.setAttribute('position', '0 0 -1');
             placementEffect.setAttribute('radius-inner', '0.5');
             placementEffect.setAttribute('radius-outer', '1');
             placementEffect.setAttribute('color', '#ffffff');
@@ -291,7 +286,11 @@
                 }
             }, 1000);
             
-            console.log('Model placed:', selectedModel, 'at position 0 0 -2');
+            console.log('Model placed:', selectedModel, 'at position 0 0 -1');
+            console.log('Camera children count:', camera.children.length);
+            
+            // Show success message
+            alert(`Model placed successfully! You should see a ${selectedModel} in front of your camera.`);
         }
 
         // Handle AR session start
@@ -434,10 +433,10 @@
             
             // Create a simple test cube
             const testCube = document.createElement('a-box');
-            testCube.setAttribute('position', '0 0 -1');
-            testCube.setAttribute('width', '0.5');
-            testCube.setAttribute('height', '0.5');
-            testCube.setAttribute('depth', '0.5');
+            testCube.setAttribute('position', '0 0 -0.5'); // Even closer
+            testCube.setAttribute('width', '0.3');
+            testCube.setAttribute('height', '0.3');
+            testCube.setAttribute('depth', '0.3');
             testCube.setAttribute('color', '#ff0000');
             
             camera.appendChild(testCube);
