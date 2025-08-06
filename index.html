@@ -159,6 +159,10 @@
         <button id="place-button" class="ui-button" onclick="placeModel()">
             Place Model
         </button>
+        
+        <button id="force-camera" class="ui-button" onclick="forceCameraReady()" style="bottom: 80px; left: 50%; transform: translateX(-50%); background: rgba(255, 165, 0, 0.8);">
+            Force Camera Ready
+        </button>
     </div>
 
     <a-scene
@@ -307,6 +311,60 @@
             document.getElementById('camera-status').textContent = 'Camera: Ready';
         });
 
+        // Alternative camera detection - check if video stream is active
+        function checkCameraStatus() {
+            // Check if AR.js video element exists and is playing
+            const videoElement = document.querySelector('video');
+            if (videoElement && videoElement.readyState >= 2) {
+                console.log('AR.js video detected and ready');
+                cameraInitialized = true;
+                document.getElementById('camera-status').textContent = 'Camera: Ready';
+                return;
+            }
+            
+            const scene = document.querySelector('a-scene');
+            if (scene && scene.systems && scene.systems.arjs) {
+                const arjsSystem = scene.systems.arjs;
+                if (arjsSystem.arProfile && arjsSystem.arProfile.sourceParameters) {
+                    console.log('AR.js system detected');
+                    cameraInitialized = true;
+                    document.getElementById('camera-status').textContent = 'Camera: Ready';
+                    return;
+                }
+            }
+            
+            // Check if we can access the camera directly
+            navigator.mediaDevices.getUserMedia({ video: true })
+                .then(function(stream) {
+                    console.log('Camera stream detected');
+                    cameraInitialized = true;
+                    document.getElementById('camera-status').textContent = 'Camera: Ready';
+                    // Stop the stream since AR.js will handle it
+                    stream.getTracks().forEach(track => track.stop());
+                })
+                .catch(function(err) {
+                    console.log('Camera access error:', err);
+                    document.getElementById('camera-status').textContent = 'Camera: Access Denied';
+                });
+        }
+
+        // Check camera status after a delay
+        setTimeout(checkCameraStatus, 3000);
+        
+        // Also check when the scene is loaded
+        document.addEventListener('DOMContentLoaded', function() {
+            setTimeout(checkCameraStatus, 1000);
+        });
+        
+        // Continuous check every 2 seconds until camera is ready
+        const cameraCheckInterval = setInterval(function() {
+            if (!cameraInitialized) {
+                checkCameraStatus();
+            } else {
+                clearInterval(cameraCheckInterval);
+            }
+        }, 2000);
+
         // Handle errors
         document.addEventListener('camera-error', function(error) {
             console.error('Camera error:', error);
@@ -335,6 +393,13 @@
                 placeModel();
             }
         });
+
+        // Force camera ready function
+        function forceCameraReady() {
+            cameraInitialized = true;
+            document.getElementById('camera-status').textContent = 'Camera: Ready (Forced)';
+            console.log('Camera status forced to ready');
+        }
 
         // Check if running on HTTPS
         if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
