@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>AR Test Page - Krosno AR</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: white;
+        }
+        
+        .container {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 30px;
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+        
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .test-section {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+        }
+        
+        .test-button {
+            background: #4CAF50;
+            color: white;
+            padding: 15px 30px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 5px;
+            text-decoration: none;
+            display: inline-block;
+        }
+        
+        .test-button:hover {
+            background: #45a049;
+        }
+        
+        .status {
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        
+        .status.success {
+            background: rgba(76, 175, 80, 0.3);
+            border: 1px solid #4CAF50;
+        }
+        
+        .status.error {
+            background: rgba(244, 67, 54, 0.3);
+            border: 1px solid #f44336;
+        }
+        
+        .status.warning {
+            background: rgba(255, 193, 7, 0.3);
+            border: 1px solid #ffc107;
+        }
+        
+        .feature-list {
+            list-style: none;
+            padding: 0;
+        }
+        
+        .feature-list li {
+            padding: 10px;
+            margin: 5px 0;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 5px;
+            border-left: 4px solid #4CAF50;
+        }
+        
+        .feature-list li.incomplete {
+            border-left-color: #ffc107;
+        }
+        
+        .feature-list li.error {
+            border-left-color: #f44336;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 Krosno AR Test Page</h1>
+        
+        <div class="test-section">
+            <h2>📱 Device Compatibility Test</h2>
+            <div id="device-status" class="status">
+                Testing device compatibility...
+            </div>
+            <ul class="feature-list" id="device-features">
+                <li>Camera access</li>
+                <li>WebXR support</li>
+                <li>HTTPS connection</li>
+                <li>Mobile browser</li>
+            </ul>
+        </div>
+        
+        <div class="test-section">
+            <h2>🎯 AR Experience Tests</h2>
+            <a href="index.html" class="test-button" target="_blank">Test Basic AR</a>
+            <a href="advanced-ar.html" class="test-button" target="_blank">Test Advanced AR</a>
+            <a href="qr-generator.html" class="test-button" target="_blank">Test QR Generator</a>
+        </div>
+        
+        <div class="test-section">
+            <h2>🔧 Browser Features</h2>
+            <div id="browser-features" class="status">
+                Checking browser features...
+            </div>
+        </div>
+        
+        <div class="test-section">
+            <h2>📊 Performance Test</h2>
+            <button class="test-button" onclick="runPerformanceTest()">Run Performance Test</button>
+            <div id="performance-results"></div>
+        </div>
+        
+        <div class="test-section">
+            <h2>🚀 Quick Start Guide</h2>
+            <ol>
+                <li>Click "Test Basic AR" to try the simple AR experience</li>
+                <li>Allow camera access when prompted</li>
+                <li>Point your camera at a flat surface</li>
+                <li>Tap "Place Model" to place 3D objects</li>
+                <li>Try different model types from the selector</li>
+            </ol>
+        </div>
+        
+        <div class="test-section">
+            <h2>📞 Troubleshooting</h2>
+            <div class="status warning">
+                <strong>Common Issues:</strong>
+                <ul>
+                    <li>Camera not working? Check browser permissions</li>
+                    <li>AR not loading? Ensure HTTPS connection</li>
+                    <li>Models not appearing? Try refreshing the page</li>
+                    <li>Slow performance? Close other apps and try again</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Device compatibility test
+        function checkDeviceCompatibility() {
+            const deviceStatus = document.getElementById('device-status');
+            const deviceFeatures = document.getElementById('device-features');
+            const features = deviceFeatures.children;
+            
+            let allGood = true;
+            
+            // Check HTTPS
+            if (location.protocol === 'https:') {
+                features[2].classList.add('success');
+                features[2].textContent = '✅ HTTPS connection (required for AR)';
+            } else {
+                features[2].classList.add('error');
+                features[2].textContent = '❌ HTTP connection (HTTPS required for AR)';
+                allGood = false;
+            }
+            
+            // Check mobile device
+            const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+            if (isMobile) {
+                features[3].classList.add('success');
+                features[3].textContent = '✅ Mobile device detected';
+            } else {
+                features[3].classList.add('warning');
+                features[3].textContent = '⚠️ Desktop device (AR works better on mobile)';
+            }
+            
+            // Check WebXR support
+            if ('xr' in navigator) {
+                navigator.xr.isSessionSupported('immersive-ar').then(supported => {
+                    if (supported) {
+                        features[1].classList.add('success');
+                        features[1].textContent = '✅ WebXR AR support available';
+                    } else {
+                        features[1].classList.add('warning');
+                        features[1].textContent = '⚠️ WebXR AR not supported (fallback available)';
+                    }
+                });
+            } else {
+                features[1].classList.add('warning');
+                features[1].textContent = '⚠️ WebXR not available (fallback available)';
+            }
+            
+            // Check camera access
+            if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+                features[0].classList.add('success');
+                features[0].textContent = '✅ Camera API available';
+            } else {
+                features[0].classList.add('error');
+                features[0].textContent = '❌ Camera API not available';
+                allGood = false;
+            }
+            
+            if (allGood) {
+                deviceStatus.className = 'status success';
+                deviceStatus.textContent = '✅ Device is compatible with AR features!';
+            } else {
+                deviceStatus.className = 'status error';
+                deviceStatus.textContent = '❌ Some compatibility issues detected. AR may not work properly.';
+            }
+        }
+        
+        // Browser features test
+        function checkBrowserFeatures() {
+            const browserFeatures = document.getElementById('browser-features');
+            const features = [];
+            
+            // Check for various browser features
+            if (navigator.userAgent.includes('Chrome')) features.push('Chrome browser');
+            if (navigator.userAgent.includes('Safari')) features.push('Safari browser');
+            if (navigator.userAgent.includes('Firefox')) features.push('Firefox browser');
+            if (navigator.userAgent.includes('Edge')) features.push('Edge browser');
+            
+            if ('serviceWorker' in navigator) features.push('Service Workers');
+            if ('localStorage' in window) features.push('Local Storage');
+            if ('sessionStorage' in window) features.push('Session Storage');
+            if ('indexedDB' in window) features.push('IndexedDB');
+            
+            browserFeatures.className = 'status success';
+            browserFeatures.innerHTML = `<strong>Detected Features:</strong> ${features.join(', ')}`;
+        }
+        
+        // Performance test
+        function runPerformanceTest() {
+            const results = document.getElementById('performance-results');
+            results.innerHTML = '<div class="status">Running performance test...</div>';
+            
+            setTimeout(() => {
+                const startTime = performance.now();
+                
+                // Simulate some performance testing
+                let test = 0;
+                for (let i = 0; i < 1000000; i++) {
+                    test += Math.random();
+                }
+                
+                const endTime = performance.now();
+                const duration = endTime - startTime;
+                
+                let performanceStatus = 'good';
+                let statusClass = 'success';
+                
+                if (duration > 100) {
+                    performanceStatus = 'slow';
+                    statusClass = 'warning';
+                }
+                if (duration > 500) {
+                    performanceStatus = 'very slow';
+                    statusClass = 'error';
+                }
+                
+                results.innerHTML = `
+                    <div class="status ${statusClass}">
+                        <strong>Performance Test Results:</strong><br>
+                        Test duration: ${duration.toFixed(2)}ms<br>
+                        Performance: ${performanceStatus}<br>
+                        Memory: ${(performance.memory?.usedJSHeapSize / 1024 / 1024).toFixed(2)}MB used
+                    </div>
+                `;
+            }, 100);
+        }
+        
+        // Run tests on page load
+        window.addEventListener('load', function() {
+            checkDeviceCompatibility();
+            checkBrowserFeatures();
+        });
+    </script>
+</body>
+</html> 

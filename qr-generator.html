@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>QR Code Generator - Krosno AR</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: white;
+        }
+        
+        .container {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 30px;
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+        
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            color: white;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        
+        input, select {
+            width: 100%;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.9);
+            font-size: 16px;
+        }
+        
+        button {
+            background: #4CAF50;
+            color: white;
+            padding: 15px 30px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 5px;
+            transition: background 0.3s ease;
+        }
+        
+        button:hover {
+            background: #45a049;
+        }
+        
+        .qr-container {
+            text-align: center;
+            margin-top: 30px;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+        }
+        
+        #qrcode {
+            display: inline-block;
+            padding: 20px;
+            background: white;
+            border-radius: 10px;
+            margin: 20px 0;
+        }
+        
+        .download-btn {
+            background: #2196F3;
+        }
+        
+        .download-btn:hover {
+            background: #1976D2;
+        }
+        
+        .instructions {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 20px;
+            border-radius: 10px;
+            margin-top: 30px;
+        }
+        
+        .instructions h3 {
+            margin-top: 0;
+        }
+        
+        .instructions ol {
+            text-align: left;
+        }
+        
+        .instructions li {
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎯 Krosno AR QR Code Generator</h1>
+        
+        <div class="form-group">
+            <label for="ar-url">AR Experience URL:</label>
+            <input type="url" id="ar-url" value="https://your-domain.com/index.html" placeholder="Enter the URL of your AR experience">
+        </div>
+        
+        <div class="form-group">
+            <label for="qr-size">QR Code Size:</label>
+            <select id="qr-size">
+                <option value="200">Small (200px)</option>
+                <option value="300" selected>Medium (300px)</option>
+                <option value="400">Large (400px)</option>
+                <option value="500">Extra Large (500px)</option>
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label for="qr-color">QR Code Color:</label>
+            <input type="color" id="qr-color" value="#000000">
+        </div>
+        
+        <div style="text-align: center;">
+            <button onclick="generateQR()">Generate QR Code</button>
+            <button class="download-btn" onclick="downloadQR()">Download QR Code</button>
+        </div>
+        
+        <div class="qr-container" id="qr-container" style="display: none;">
+            <h3>Your QR Code</h3>
+            <div id="qrcode"></div>
+            <p>Scan this QR code with your phone's camera to launch the AR experience!</p>
+        </div>
+        
+        <div class="instructions">
+            <h3>📱 How to Use:</h3>
+            <ol>
+                <li><strong>Generate QR Code:</strong> Enter your AR experience URL and click "Generate QR Code"</li>
+                <li><strong>Download:</strong> Click "Download QR Code" to save the image</li>
+                <li><strong>Print/Display:</strong> Print the QR code or display it on a screen</li>
+                <li><strong>Scan:</strong> Users scan the QR code with their phone's camera</li>
+                <li><strong>Experience:</strong> The AR experience opens in their browser automatically</li>
+            </ol>
+            
+            <h3>🚀 Deployment Tips:</h3>
+            <ul>
+                <li>Host your AR experience on HTTPS (required for camera access)</li>
+                <li>Use a reliable hosting service (Netlify, Vercel, GitHub Pages)</li>
+                <li>Test the QR code with different devices and browsers</li>
+                <li>Ensure your 3D models are optimized for mobile devices</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        function generateQR() {
+            const url = document.getElementById('ar-url').value;
+            const size = document.getElementById('qr-size').value;
+            const color = document.getElementById('qr-color').value;
+            
+            if (!url) {
+                alert('Please enter a URL for the AR experience');
+                return;
+            }
+            
+            const qrContainer = document.getElementById('qr-container');
+            const qrCodeDiv = document.getElementById('qrcode');
+            
+            // Clear previous QR code
+            qrCodeDiv.innerHTML = '';
+            
+            // Generate new QR code
+            QRCode.toCanvas(qrCodeDiv, url, {
+                width: parseInt(size),
+                color: {
+                    dark: color,
+                    light: '#FFFFFF'
+                },
+                margin: 2
+            }, function (error) {
+                if (error) {
+                    console.error('QR Code generation error:', error);
+                    alert('Error generating QR code. Please try again.');
+                } else {
+                    qrContainer.style.display = 'block';
+                }
+            });
+        }
+        
+        function downloadQR() {
+            const canvas = document.querySelector('#qrcode canvas');
+            if (!canvas) {
+                alert('Please generate a QR code first');
+                return;
+            }
+            
+            const link = document.createElement('a');
+            link.download = 'krosno-ar-qr.png';
+            link.href = canvas.toDataURL();
+            link.click();
+        }
+        
+        // Auto-generate QR code on page load with default values
+        window.addEventListener('load', function() {
+            // Set a default URL if none is provided
+            const urlInput = document.getElementById('ar-url');
+            if (urlInput.value === 'https://your-domain.com/index.html') {
+                // You can set a default URL here
+                urlInput.value = window.location.origin + '/index.html';
+            }
+        });
+    </script>
+</body>
+</html> 

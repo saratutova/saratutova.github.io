@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Krosno AR Experience</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
+    <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.min.js"></script>
+    <script src="https://raw.githack.com/donmccurdy/aframe-extras/master/dist/aframe-extras.loaders.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+        }
+        
+        #ui-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 1000;
+        }
+        
+        .ui-button {
+            position: absolute;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            border: 2px solid white;
+            border-radius: 25px;
+            padding: 15px 25px;
+            font-size: 16px;
+            pointer-events: auto;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .ui-button:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+        
+        #place-button {
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+        
+        #model-selector {
+            top: 30px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            border-radius: 10px;
+            padding: 10px;
+        }
+        
+        .model-option {
+            display: block;
+            margin: 5px 0;
+            padding: 8px 15px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 5px;
+            color: white;
+            cursor: pointer;
+            transition: background 0.3s ease;
+        }
+        
+        .model-option:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+        
+        .model-option.selected {
+            background: rgba(0, 255, 0, 0.3);
+            border-color: #00ff00;
+        }
+        
+        #instructions {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            max-width: 300px;
+            pointer-events: auto;
+        }
+        
+        #loading {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            color: white;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+        }
+        
+        .spinner {
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-top: 4px solid white;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin-right: 15px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div id="loading">
+        <div class="spinner"></div>
+        <div>Loading AR Experience...</div>
+    </div>
+
+    <div id="ui-overlay">
+        <div id="instructions">
+            <h3>Krosno AR Experience</h3>
+            <p>Point your camera at a flat surface and tap "Place Model" to place a 3D model.</p>
+            <button class="ui-button" onclick="hideInstructions()">Got it!</button>
+        </div>
+        
+        <div id="model-selector">
+            <h4 style="color: white; margin: 0 0 10px 0;">Select Model:</h4>
+            <div class="model-option selected" onclick="selectModel('cube')">Cube</div>
+            <div class="model-option" onclick="selectModel('sphere')">Sphere</div>
+            <div class="model-option" onclick="selectModel('cylinder')">Cylinder</div>
+        </div>
+        
+        <button id="place-button" class="ui-button" onclick="placeModel()">
+            Place Model
+        </button>
+    </div>
+
+    <a-scene
+        vr-mode-ui="enabled: false"
+        arjs="sourceType: webcam; videoTexture: true; debugUIEnabled: false;"
+        renderer="logarithmicDepthBuffer: true;"
+        embedded
+        arjs-look-controls="smoothingFactor: 0.1">
+
+        <!-- Camera -->
+        <a-camera gps-camera rotation-reader></a-camera>
+
+        <!-- Lighting -->
+        <a-light type="ambient" color="#ffffff" intensity="0.6"></a-light>
+        <a-light type="directional" color="#ffffff" intensity="0.8" position="0 1 0"></a-light>
+
+        <!-- AR Marker (optional - for marker-based AR) -->
+        <!-- <a-marker preset="hiro">
+            <a-box position="0 0.5 0" material="color: yellow;"></a-box>
+        </a-marker> -->
+
+    </a-scene>
+
+    <script>
+        let selectedModel = 'cube';
+        let modelCount = 0;
+
+        // Hide loading screen when AR is ready
+        window.addEventListener('load', function() {
+            setTimeout(() => {
+                document.getElementById('loading').style.display = 'none';
+            }, 2000);
+        });
+
+        function hideInstructions() {
+            document.getElementById('instructions').style.display = 'none';
+        }
+
+        function selectModel(modelType) {
+            selectedModel = modelType;
+            
+            // Update UI
+            document.querySelectorAll('.model-option').forEach(option => {
+                option.classList.remove('selected');
+            });
+            event.target.classList.add('selected');
+        }
+
+        function placeModel() {
+            const scene = document.querySelector('a-scene');
+            const camera = document.querySelector('a-camera');
+            
+            // Get camera position and direction
+            const cameraPosition = camera.getAttribute('position');
+            const cameraRotation = camera.getAttribute('rotation');
+            
+            // Calculate position in front of camera
+            const distance = 2;
+            const radians = THREE.Math.degToRad(cameraRotation.y);
+            const x = cameraPosition.x - Math.sin(radians) * distance;
+            const z = cameraPosition.z - Math.cos(radians) * distance;
+            const y = cameraPosition.y - 0.5; // Slightly below camera
+            
+            // Create model based on selection
+            let model;
+            switch(selectedModel) {
+                case 'sphere':
+                    model = document.createElement('a-sphere');
+                    model.setAttribute('radius', '0.5');
+                    model.setAttribute('color', '#ff6b6b');
+                    break;
+                case 'cylinder':
+                    model = document.createElement('a-cylinder');
+                    model.setAttribute('radius', '0.5');
+                    model.setAttribute('height', '1');
+                    model.setAttribute('color', '#4ecdc4');
+                    break;
+                default: // cube
+                    model = document.createElement('a-box');
+                    model.setAttribute('width', '1');
+                    model.setAttribute('height', '1');
+                    model.setAttribute('depth', '1');
+                    model.setAttribute('color', '#45b7d1');
+                    break;
+            }
+            
+            // Set position and add to scene
+            model.setAttribute('position', `${x} ${y} ${z}`);
+            model.setAttribute('animation', 'property: rotation; to: 0 360 0; dur: 5000; loop: true');
+            model.setAttribute('class', 'ar-model');
+            model.setAttribute('data-model-id', modelCount++);
+            
+            // Add click interaction
+            model.addEventListener('click', function() {
+                this.setAttribute('scale', '1.2 1.2 1.2');
+                setTimeout(() => {
+                    this.setAttribute('scale', '1 1 1');
+                }, 200);
+            });
+            
+            scene.appendChild(model);
+            
+            // Add placement effect
+            const placementEffect = document.createElement('a-ring');
+            placementEffect.setAttribute('position', `${x} ${y} ${z}`);
+            placementEffect.setAttribute('radius-inner', '0.5');
+            placementEffect.setAttribute('radius-outer', '1');
+            placementEffect.setAttribute('color', '#ffffff');
+            placementEffect.setAttribute('opacity', '0.8');
+            placementEffect.setAttribute('animation', 'property: scale; to: 2 2 2; dur: 1000; easing: easeOutQuad');
+            
+            scene.appendChild(placementEffect);
+            
+            // Remove effect after animation
+            setTimeout(() => {
+                scene.removeChild(placementEffect);
+            }, 1000);
+        }
+
+        // Handle AR session start
+        document.addEventListener('arjs-nft-loaded', function(event) {
+            console.log('AR session started');
+        });
+
+        // Handle errors
+        document.addEventListener('camera-error', function(error) {
+            console.error('Camera error:', error);
+            alert('Camera access denied. Please allow camera access to use AR features.');
+        });
+
+        // Add touch gesture support for mobile
+        let touchStartY = 0;
+        document.addEventListener('touchstart', function(event) {
+            touchStartY = event.touches[0].clientY;
+        });
+
+        document.addEventListener('touchend', function(event) {
+            const touchEndY = event.changedTouches[0].clientY;
+            const diff = touchStartY - touchEndY;
+            
+            // Swipe up to place model
+            if (diff > 50) {
+                placeModel();
+            }
+        });
+    </script>
+</body>
+</html> 
