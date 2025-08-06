@@ -161,6 +161,10 @@
             Place Model
         </button>
         
+        <button id="test-button" class="ui-button" onclick="testPlacement()" style="bottom: 130px; left: 50%; transform: translateX(-50%); background: rgba(0, 255, 0, 0.8);">
+            Test Placement
+        </button>
+        
         <button id="force-camera" class="ui-button" onclick="forceCameraReady()" style="bottom: 80px; left: 50%; transform: translateX(-50%); background: rgba(255, 165, 0, 0.8);">
             Force Camera Ready
         </button>
@@ -168,7 +172,7 @@
 
     <a-scene
         vr-mode-ui="enabled: false"
-        arjs="sourceType: webcam; videoTexture: true; debugUIEnabled: false; detectionMode: mono_and_matrix; matrixCodeType: 3x3;"
+        arjs="sourceType: webcam; videoTexture: true; debugUIEnabled: false; detectionMode: mono_and_matrix; matrixCodeType: 3x3; sourceWidth: 1280; sourceHeight: 960; displayWidth: 1280; displayHeight: 960;"
         renderer="logarithmicDepthBuffer: true;"
         embedded
         arjs-look-controls="smoothingFactor: 0.1">
@@ -180,10 +184,10 @@
         <a-light type="ambient" color="#ffffff" intensity="0.6"></a-light>
         <a-light type="directional" color="#ffffff" intensity="0.8" position="0 1 0"></a-light>
 
-        <!-- AR Marker (optional - for marker-based AR) -->
-        <!-- <a-marker preset="hiro">
-            <a-box position="0 0.5 0" material="color: yellow;"></a-box>
-        </a-marker> -->
+        <!-- Surface detection indicator -->
+        <a-marker-camera preset="hiro" emitevents="true" id="markerCamera">
+            <!-- This will be used for surface detection -->
+        </a-marker-camera>
 
     </a-scene>
 
@@ -220,18 +224,6 @@
             }
 
             const scene = document.querySelector('a-scene');
-            const camera = document.querySelector('a-camera');
-            
-            // Get camera position and direction
-            const cameraPosition = camera.getAttribute('position');
-            const cameraRotation = camera.getAttribute('rotation');
-            
-            // Calculate position in front of camera
-            const distance = 2;
-            const radians = (cameraRotation.y * Math.PI) / 180; // Convert degrees to radians
-            const x = cameraPosition.x - Math.sin(radians) * distance;
-            const z = cameraPosition.z - Math.cos(radians) * distance;
-            const y = cameraPosition.y - 0.5; // Slightly below camera
             
             // Create model based on selection
             let model;
@@ -261,8 +253,8 @@
                     break;
             }
             
-            // Set position and add to scene
-            model.setAttribute('position', `${x} ${y} ${z}`);
+            // Place model at a fixed position in front of camera
+            model.setAttribute('position', '0 0 -2'); // 2 units in front of camera
             if (selectedModel !== 'nortec') {
                 model.setAttribute('animation', 'property: rotation; to: 0 360 0; dur: 5000; loop: true');
             }
@@ -277,25 +269,29 @@
                 }, 200);
             });
             
-            scene.appendChild(model);
+            // Add to camera so it follows the camera
+            const camera = document.querySelector('a-camera');
+            camera.appendChild(model);
             
             // Add placement effect
             const placementEffect = document.createElement('a-ring');
-            placementEffect.setAttribute('position', `${x} ${y} ${z}`);
+            placementEffect.setAttribute('position', '0 0 -2');
             placementEffect.setAttribute('radius-inner', '0.5');
             placementEffect.setAttribute('radius-outer', '1');
             placementEffect.setAttribute('color', '#ffffff');
             placementEffect.setAttribute('opacity', '0.8');
             placementEffect.setAttribute('animation', 'property: scale; to: 2 2 2; dur: 1000; easing: easeOutQuad');
             
-            scene.appendChild(placementEffect);
+            camera.appendChild(placementEffect);
             
             // Remove effect after animation
             setTimeout(() => {
                 if (placementEffect.parentNode) {
-                    scene.removeChild(placementEffect);
+                    camera.removeChild(placementEffect);
                 }
             }, 1000);
+            
+            console.log('Model placed:', selectedModel, 'at position 0 0 -2');
         }
 
         // Handle AR session start
@@ -423,6 +419,30 @@
                 placeModel();
             }
         });
+
+        // Test placement function
+        function testPlacement() {
+            console.log('Test placement called');
+            alert('Test placement function called! Check console for details.');
+            
+            const scene = document.querySelector('a-scene');
+            const camera = document.querySelector('a-camera');
+            
+            console.log('Scene:', scene);
+            console.log('Camera:', camera);
+            console.log('Camera children:', camera.children);
+            
+            // Create a simple test cube
+            const testCube = document.createElement('a-box');
+            testCube.setAttribute('position', '0 0 -1');
+            testCube.setAttribute('width', '0.5');
+            testCube.setAttribute('height', '0.5');
+            testCube.setAttribute('depth', '0.5');
+            testCube.setAttribute('color', '#ff0000');
+            
+            camera.appendChild(testCube);
+            console.log('Test cube added to camera');
+        }
 
         // Force camera ready function
         function forceCameraReady() {
