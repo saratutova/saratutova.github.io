@@ -132,14 +132,28 @@
              transition: opacity 0.5s ease;
          }
          
-         /* Ensure video doesn't interfere with UI */
-         video {
-             z-index: 1 !important;
-         }
-         
-         .a-canvas {
-             z-index: 1 !important;
-         }
+                   /* Ensure video doesn't interfere with UI */
+          video {
+              z-index: 1 !important;
+          }
+          
+          .a-canvas {
+              z-index: 1 !important;
+              pointer-events: none !important;
+          }
+          
+          /* Force UI to be above everything */
+          #ui-overlay {
+              z-index: 99999 !important;
+          }
+          
+          .ui-button {
+              z-index: 100000 !important;
+          }
+          
+          #model-selector {
+              z-index: 100000 !important;
+          }
     </style>
 </head>
 <body>
@@ -432,10 +446,8 @@
 
                  // Test placement function
          function testPlacement() {
-             console.log('Test placement called');
-             alert('Test placement function called! Check console for details.');
-             
-                           const scene = document.querySelector('a-scene');
+             console.log('Test placement called');             
+              const scene = document.querySelector('a-scene');
               const camera = document.querySelector('#mainCamera');
               
               console.log('Scene:', scene);
@@ -452,6 +464,28 @@
              
              camera.appendChild(testCube);
              console.log('Test cube added to camera');
+             
+             // Also try adding to scene directly
+             const sceneCube = document.createElement('a-box');
+             sceneCube.setAttribute('position', '0 0 -3');
+             sceneCube.setAttribute('width', '0.5');
+             sceneCube.setAttribute('height', '0.5');
+             sceneCube.setAttribute('depth', '0.5');
+             sceneCube.setAttribute('color', '#00ff00');
+             scene.appendChild(sceneCube);
+             console.log('Green cube added to scene');
+             
+             // Force a scene update
+             if (scene && scene.renderer) {
+                 scene.renderer.render(scene.object3D, scene.camera);
+             }
+             
+             // Check if canvas is visible
+             const canvas = document.querySelector('.a-canvas');
+             if (canvas) {
+                 console.log('Canvas dimensions:', canvas.offsetWidth, 'x', canvas.offsetHeight);
+                 console.log('Canvas style:', canvas.style.cssText);
+             }
          }
 
         // Force camera ready function
@@ -477,21 +511,29 @@
             }
         }, 10000);
 
-        // Fix canvas size if needed
-        function fixCanvasSize() {
-            const canvas = document.querySelector('.a-canvas');
-            if (canvas) {
-                const rect = canvas.getBoundingClientRect();
-                if (rect.height === 0) {
-                    console.log('Fixing canvas size...');
-                    canvas.style.height = window.innerHeight + 'px';
-                    canvas.style.width = window.innerWidth + 'px';
-                }
-            }
-        }
+                 // Fix canvas size if needed
+         function fixCanvasSize() {
+             const canvas = document.querySelector('.a-canvas');
+             if (canvas) {
+                 const rect = canvas.getBoundingClientRect();
+                 if (rect.height === 0 || rect.height < 100) {
+                     console.log('Fixing canvas size...');
+                     canvas.style.height = window.innerHeight + 'px';
+                     canvas.style.width = window.innerWidth + 'px';
+                     canvas.style.position = 'fixed';
+                     canvas.style.top = '0';
+                     canvas.style.left = '0';
+                 }
+             }
+         }
 
-        // Check canvas size periodically
-        setInterval(fixCanvasSize, 1000);
+                 // Check canvas size periodically
+         setInterval(fixCanvasSize, 1000);
+         
+         // Force canvas fix on load
+         setTimeout(fixCanvasSize, 100);
+         setTimeout(fixCanvasSize, 500);
+         setTimeout(fixCanvasSize, 1000);
 
         
 
