@@ -154,6 +154,15 @@
           #model-selector {
               z-index: 100000 !important;
           }
+        a-scene, .a-canvas {
+            width: 100vw !important;
+            height: 100vh !important;
+            min-height: 300px !important;
+            display: block !important;
+        }
+        .a-canvas {
+            border: 2px solid red !important;
+        }
     </style>
 </head>
 <body>
@@ -179,10 +188,10 @@
         
         <div id="model-selector">
             <h4 style="color: white; margin: 0 0 10px 0;">Select Model:</h4>
-            <div class="model-option selected" onclick="selectModel('cube')">Cube</div>
-            <div class="model-option" onclick="selectModel('sphere')">Sphere</div>
-            <div class="model-option" onclick="selectModel('cylinder')">Cylinder</div>
-            <div class="model-option" onclick="selectModel('nortec')">Nortec 600D</div>
+            <div class="model-option selected" onclick="selectModel(event, 'cube')">Cube</div>
+            <div class="model-option" onclick="selectModel(event, 'sphere')">Sphere</div>
+            <div class="model-option" onclick="selectModel(event, 'cylinder')">Cylinder</div>
+            <div class="model-option" onclick="selectModel(event, 'nortec')">Nortec 600D</div>
         </div>
         
         <button id="place-button" class="ui-button" onclick="placeModel()">
@@ -204,7 +213,6 @@
           vr-mode-ui="enabled: false"
           arjs="sourceType: webcam; videoTexture: true; debugUIEnabled: false;"
           renderer="logarithmicDepthBuffer: true;"
-          embedded
           arjs-look-controls="smoothingFactor: 0.1">
 
           <!-- Simple camera without QR detection -->
@@ -232,7 +240,7 @@
             document.getElementById('instructions').style.display = 'none';
         }
 
-        function selectModel(modelType) {
+        function selectModel(event, modelType) {
             selectedModel = modelType;
             
             // Update UI
@@ -241,18 +249,18 @@
             });
             
             // Find the clicked element and add selected class
-            const clickedElement = event.target;
-            clickedElement.classList.add('selected');
+            event.target.classList.add('selected');
             
             console.log('Model selected:', modelType);
         }
 
         function placeModel() {
+            console.log('placeModel called');
             if (!cameraInitialized) {
                 alert('Camera not ready. Please wait for camera initialization or check camera permissions.');
                 return;
             }
-
+            
             console.log('placeModel called for:', selectedModel);
             
                          // Get the main camera element
@@ -534,6 +542,18 @@
          setTimeout(fixCanvasSize, 100);
          setTimeout(fixCanvasSize, 500);
          setTimeout(fixCanvasSize, 1000);
+
+         // Force canvas size after load
+        window.addEventListener('load', function() {
+            setTimeout(() => {
+                const canvas = document.querySelector('.a-canvas');
+                if (canvas) {
+                    canvas.style.width = '100vw';
+                    canvas.style.height = '100vh';
+                    canvas.style.display = 'block';
+                }
+            }, 1000);
+        });
 
         
 
