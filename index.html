@@ -4,8 +4,9 @@
     <title>Krosno AR Experience</title>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📱</text></svg>">
     <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
-    <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.min.js"></script>
+    <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar-nft.js"></script>
     <script src="https://raw.githack.com/donmccurdy/aframe-extras/master/dist/aframe-extras.loaders.min.js"></script>
     <style>
         body {
@@ -118,6 +119,17 @@
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
+
+        #camera-status {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 14px;
+        }
     </style>
 </head>
 <body>
@@ -127,9 +139,12 @@
     </div>
 
     <div id="ui-overlay">
+        <div id="camera-status">Camera: Initializing...</div>
+        
         <div id="instructions">
             <h3>Krosno AR Experience</h3>
             <p>Point your camera at a flat surface and tap "Place Model" to place a 3D model.</p>
+            <p><strong>Note:</strong> This requires HTTPS and camera permission.</p>
             <button class="ui-button" onclick="hideInstructions()">Got it!</button>
         </div>
         
@@ -138,6 +153,7 @@
             <div class="model-option selected" onclick="selectModel('cube')">Cube</div>
             <div class="model-option" onclick="selectModel('sphere')">Sphere</div>
             <div class="model-option" onclick="selectModel('cylinder')">Cylinder</div>
+            <div class="model-option" onclick="selectModel('nortec')">Nortec 600D</div>
         </div>
         
         <button id="place-button" class="ui-button" onclick="placeModel()">
@@ -147,7 +163,7 @@
 
     <a-scene
         vr-mode-ui="enabled: false"
-        arjs="sourceType: webcam; videoTexture: true; debugUIEnabled: false;"
+        arjs="sourceType: webcam; videoTexture: true; debugUIEnabled: false; detectionMode: mono_and_matrix; matrixCodeType: 3x3;"
         renderer="logarithmicDepthBuffer: true;"
         embedded
         arjs-look-controls="smoothingFactor: 0.1">
@@ -169,6 +185,7 @@
     <script>
         let selectedModel = 'cube';
         let modelCount = 0;
+        let cameraInitialized = false;
 
         // Hide loading screen when AR is ready
         window.addEventListener('load', function() {
@@ -192,6 +209,11 @@
         }
 
         function placeModel() {
+            if (!cameraInitialized) {
+                alert('Camera not ready. Please wait for camera initialization or check camera permissions.');
+                return;
+            }
+
             const scene = document.querySelector('a-scene');
             const camera = document.querySelector('a-camera');
             
@@ -220,6 +242,11 @@
                     model.setAttribute('height', '1');
                     model.setAttribute('color', '#4ecdc4');
                     break;
+                case 'nortec':
+                    model = document.createElement('a-entity');
+                    model.setAttribute('gltf-model', './models/Nortec600D.glb');
+                    model.setAttribute('scale', '0.5 0.5 0.5');
+                    break;
                 default: // cube
                     model = document.createElement('a-box');
                     model.setAttribute('width', '1');
@@ -231,7 +258,9 @@
             
             // Set position and add to scene
             model.setAttribute('position', `${x} ${y} ${z}`);
-            model.setAttribute('animation', 'property: rotation; to: 0 360 0; dur: 5000; loop: true');
+            if (selectedModel !== 'nortec') {
+                model.setAttribute('animation', 'property: rotation; to: 0 360 0; dur: 5000; loop: true');
+            }
             model.setAttribute('class', 'ar-model');
             model.setAttribute('data-model-id', modelCount++);
             
@@ -239,7 +268,7 @@
             model.addEventListener('click', function() {
                 this.setAttribute('scale', '1.2 1.2 1.2');
                 setTimeout(() => {
-                    this.setAttribute('scale', '1 1 1');
+                    this.setAttribute('scale', selectedModel === 'nortec' ? '0.5 0.5 0.5' : '1 1 1');
                 }, 200);
             });
             
@@ -258,19 +287,37 @@
             
             // Remove effect after animation
             setTimeout(() => {
-                scene.removeChild(placementEffect);
+                if (placementEffect.parentNode) {
+                    scene.removeChild(placementEffect);
+                }
             }, 1000);
         }
 
         // Handle AR session start
         document.addEventListener('arjs-nft-loaded', function(event) {
             console.log('AR session started');
+            cameraInitialized = true;
+            document.getElementById('camera-status').textContent = 'Camera: Ready';
+        });
+
+        // Handle camera initialization
+        document.addEventListener('camera-init', function(event) {
+            console.log('Camera initialized');
+            cameraInitialized = true;
+            document.getElementById('camera-status').textContent = 'Camera: Ready';
         });
 
         // Handle errors
         document.addEventListener('camera-error', function(error) {
             console.error('Camera error:', error);
+            document.getElementById('camera-status').textContent = 'Camera: Error - Check permissions';
             alert('Camera access denied. Please allow camera access to use AR features.');
+        });
+
+        // Handle AR.js errors
+        document.addEventListener('arjs-nft-error', function(error) {
+            console.error('AR.js error:', error);
+            document.getElementById('camera-status').textContent = 'AR: Error - Check HTTPS';
         });
 
         // Add touch gesture support for mobile
@@ -288,6 +335,12 @@
                 placeModel();
             }
         });
+
+        // Check if running on HTTPS
+        if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
+            alert('AR features require HTTPS. Please access this page via HTTPS or localhost.');
+            document.getElementById('camera-status').textContent = 'Camera: HTTPS Required';
+        }
     </script>
 </body>
 </html> 
