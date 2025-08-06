@@ -129,6 +129,7 @@
             padding: 10px;
             border-radius: 5px;
             font-size: 14px;
+            transition: opacity 0.5s ease;
         }
     </style>
 </head>
@@ -302,6 +303,7 @@
             console.log('AR session started');
             cameraInitialized = true;
             document.getElementById('camera-status').textContent = 'Camera: Ready';
+            hideCameraStatus();
         });
 
         // Handle camera initialization
@@ -309,6 +311,7 @@
             console.log('Camera initialized');
             cameraInitialized = true;
             document.getElementById('camera-status').textContent = 'Camera: Ready';
+            hideCameraStatus();
         });
 
         // Alternative camera detection - check if video stream is active
@@ -320,6 +323,7 @@
                 cameraInitialized = true;
                 document.getElementById('camera-status').textContent = 'Camera: Ready';
                 hideForceCameraButton();
+                hideCameraStatus();
                 return;
             }
             
@@ -331,6 +335,7 @@
                     cameraInitialized = true;
                     document.getElementById('camera-status').textContent = 'Camera: Ready';
                     hideForceCameraButton();
+                    hideCameraStatus();
                     return;
                 }
             }
@@ -342,6 +347,7 @@
                     cameraInitialized = true;
                     document.getElementById('camera-status').textContent = 'Camera: Ready';
                     hideForceCameraButton();
+                    hideCameraStatus();
                     // Stop the stream since AR.js will handle it
                     stream.getTracks().forEach(track => track.stop());
                 })
@@ -356,6 +362,19 @@
             const forceButton = document.getElementById('force-camera');
             if (forceButton) {
                 forceButton.style.display = 'none';
+            }
+        }
+
+        // Hide camera status after camera is ready
+        function hideCameraStatus() {
+            const cameraStatus = document.getElementById('camera-status');
+            if (cameraStatus) {
+                setTimeout(() => {
+                    cameraStatus.style.opacity = '0';
+                    setTimeout(() => {
+                        cameraStatus.style.display = 'none';
+                    }, 500);
+                }, 2000); // Hide after 2 seconds
             }
         }
 
@@ -416,6 +435,9 @@
             if (forceButton) {
                 forceButton.style.display = 'none';
             }
+            
+            // Hide camera status
+            hideCameraStatus();
         }
 
         // Auto-hide force camera button after 10 seconds
