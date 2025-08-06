@@ -139,6 +139,8 @@
         <div>Loading AR Experience...</div>
     </div>
 
+
+
     <div id="ui-overlay">
         <div id="camera-status">Camera: Initializing...</div>
         
@@ -172,17 +174,18 @@
 
     <a-scene
         vr-mode-ui="enabled: false"
-        arjs="sourceType: webcam; videoTexture: true; debugUIEnabled: false;"
-        renderer="logarithmicDepthBuffer: true;"
         embedded
         arjs-look-controls="smoothingFactor: 0.1">
 
         <!-- Camera -->
-        <a-camera gps-camera rotation-reader></a-camera>
+        <a-camera position="0 0 0"></a-camera>
 
         <!-- Lighting -->
         <a-light type="ambient" color="#ffffff" intensity="0.6"></a-light>
         <a-light type="directional" color="#ffffff" intensity="0.8" position="0 1 0"></a-light>
+
+        <!-- Simple background -->
+        <a-sky color="#87CEEB"></a-sky>
 
     </a-scene>
 
@@ -465,6 +468,22 @@
                 hideForceCameraButton();
             }
         }, 10000);
+
+        // Fix canvas size if needed
+        function fixCanvasSize() {
+            const canvas = document.querySelector('.a-canvas');
+            if (canvas) {
+                const rect = canvas.getBoundingClientRect();
+                if (rect.height === 0) {
+                    console.log('Fixing canvas size...');
+                    canvas.style.height = window.innerHeight + 'px';
+                    canvas.style.width = window.innerWidth + 'px';
+                }
+            }
+        }
+
+        // Check canvas size periodically
+        setInterval(fixCanvasSize, 1000);
 
         // Check if running on HTTPS
         if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
