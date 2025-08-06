@@ -227,7 +227,7 @@
             
             // Calculate position in front of camera
             const distance = 2;
-            const radians = THREE.Math.degToRad(cameraRotation.y);
+            const radians = (cameraRotation.y * Math.PI) / 180; // Convert degrees to radians
             const x = cameraPosition.x - Math.sin(radians) * distance;
             const z = cameraPosition.z - Math.cos(radians) * distance;
             const y = cameraPosition.y - 0.5; // Slightly below camera
@@ -319,6 +319,7 @@
                 console.log('AR.js video detected and ready');
                 cameraInitialized = true;
                 document.getElementById('camera-status').textContent = 'Camera: Ready';
+                hideForceCameraButton();
                 return;
             }
             
@@ -329,6 +330,7 @@
                     console.log('AR.js system detected');
                     cameraInitialized = true;
                     document.getElementById('camera-status').textContent = 'Camera: Ready';
+                    hideForceCameraButton();
                     return;
                 }
             }
@@ -339,6 +341,7 @@
                     console.log('Camera stream detected');
                     cameraInitialized = true;
                     document.getElementById('camera-status').textContent = 'Camera: Ready';
+                    hideForceCameraButton();
                     // Stop the stream since AR.js will handle it
                     stream.getTracks().forEach(track => track.stop());
                 })
@@ -346,6 +349,14 @@
                     console.log('Camera access error:', err);
                     document.getElementById('camera-status').textContent = 'Camera: Access Denied';
                 });
+        }
+
+        // Hide force camera button when camera is ready
+        function hideForceCameraButton() {
+            const forceButton = document.getElementById('force-camera');
+            if (forceButton) {
+                forceButton.style.display = 'none';
+            }
         }
 
         // Check camera status after a delay
@@ -397,9 +408,22 @@
         // Force camera ready function
         function forceCameraReady() {
             cameraInitialized = true;
-            document.getElementById('camera-status').textContent = 'Camera: Ready (Forced)';
+            document.getElementById('camera-status').textContent = 'Camera: Ready';
             console.log('Camera status forced to ready');
+            
+            // Hide the force camera button after it's been used
+            const forceButton = document.getElementById('force-camera');
+            if (forceButton) {
+                forceButton.style.display = 'none';
+            }
         }
+
+        // Auto-hide force camera button after 10 seconds
+        setTimeout(function() {
+            if (!cameraInitialized) {
+                hideForceCameraButton();
+            }
+        }, 10000);
 
         // Check if running on HTTPS
         if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
