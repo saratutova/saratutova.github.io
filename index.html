@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>AR Test</title>
+    <title>AR.js Basic Example</title>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <script src="https://aframe.io/releases/1.2.0/aframe.min.js"></script>
@@ -36,33 +36,12 @@
             text-align: center;
             z-index: 1000;
         }
-        
-        /* Force video to be visible */
-        video {
-            position: fixed !important;
-            top: 0 !important;
-            left: 0 !important;
-            width: 100vw !important;
-            height: 100vh !important;
-            object-fit: cover !important;
-            z-index: 1 !important;
-        }
-        
-        /* Force canvas to be visible */
-        .a-canvas {
-            position: fixed !important;
-            top: 0 !important;
-            left: 0 !important;
-            width: 100vw !important;
-            height: 100vh !important;
-            z-index: 2 !important;
-        }
     </style>
 </head>
 <body>
     <div id="status">Camera: Initializing...</div>
     <div id="instructions">
-        <h3>AR Test</h3>
+        <h3>AR.js Basic Example</h3>
         <p>1. Allow camera access</p>
         <p>2. Point camera at Hiro marker</p>
         <p>3. You should see a red cube</p>
@@ -83,49 +62,38 @@
     </a-scene>
 
     <script>
-        // Wait for everything to load
-        window.addEventListener('load', function() {
-            console.log('Page loaded');
+        // Basic AR.js setup
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('DOM loaded');
             
-            // Check for video element
-            setTimeout(function() {
-                const video = document.querySelector('video');
-                if (video) {
-                    console.log('Video element found:', video);
-                    console.log('Video readyState:', video.readyState);
-                    console.log('Video style:', video.style.cssText);
-                    
-                    // Force video to be visible
-                    video.style.position = 'fixed';
-                    video.style.top = '0';
-                    video.style.left = '0';
-                    video.style.width = '100vw';
-                    video.style.height = '100vh';
-                    video.style.objectFit = 'cover';
-                    video.style.zIndex = '1';
-                    video.style.display = 'block';
-                    
-                    document.getElementById('status').textContent = 'Camera: Video found';
-                } else {
-                    console.log('No video element found');
-                    document.getElementById('status').textContent = 'Camera: No video element';
-                }
-            }, 2000);
+            // Check for AR.js
+            if (typeof AFRAME !== 'undefined') {
+                console.log('A-Frame loaded');
+            } else {
+                console.log('A-Frame not loaded');
+            }
+            
+            // Check for AR.js
+            if (typeof ARjs !== 'undefined') {
+                console.log('AR.js loaded');
+            } else {
+                console.log('AR.js not loaded');
+            }
         });
 
         // AR.js events
         document.addEventListener('arjs-loaded', function() {
-            console.log('AR.js loaded');
+            console.log('AR.js loaded event fired');
             document.getElementById('status').textContent = 'Camera: AR.js Ready';
         });
 
         document.addEventListener('camera-init', function() {
-            console.log('Camera initialized');
+            console.log('Camera init event fired');
             document.getElementById('status').textContent = 'Camera: Initialized';
         });
 
         document.addEventListener('camera-error', function(error) {
-            console.error('Camera error:', error);
+            console.error('Camera error event fired:', error);
             document.getElementById('status').textContent = 'Camera: Error';
         });
 
@@ -133,6 +101,8 @@
         document.addEventListener('DOMContentLoaded', function() {
             const marker = document.querySelector('a-marker');
             if (marker) {
+                console.log('Marker element found');
+                
                 marker.addEventListener('markerFound', function() {
                     console.log('Marker found!');
                     document.getElementById('status').textContent = 'Marker: Found!';
@@ -144,8 +114,33 @@
                     document.getElementById('status').textContent = 'Camera: Ready';
                     document.getElementById('status').style.background = 'rgba(0, 0, 0, 0.7)';
                 });
+            } else {
+                console.log('Marker element not found');
             }
         });
+
+        // Check for video element periodically
+        function checkVideo() {
+            const video = document.querySelector('video');
+            if (video) {
+                console.log('Video element found:', video);
+                console.log('Video readyState:', video.readyState);
+                document.getElementById('status').textContent = 'Camera: Video found';
+                return true;
+            } else {
+                console.log('No video element found yet');
+                return false;
+            }
+        }
+
+        // Check every second for 10 seconds
+        let videoCheckCount = 0;
+        const videoCheckInterval = setInterval(function() {
+            videoCheckCount++;
+            if (checkVideo() || videoCheckCount >= 10) {
+                clearInterval(videoCheckInterval);
+            }
+        }, 1000);
 
         // Check HTTPS
         if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
