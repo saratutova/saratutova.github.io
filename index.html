@@ -171,61 +171,42 @@
         <div>Loading AR Experience...</div>
     </div>
 
-
-
     <div id="ui-overlay">
         <div id="camera-status">Camera: Initializing...</div>
-        
-                 <div id="instructions">
-             <h3>Krosno AR Experience</h3>
-             <p>1. Allow camera access when prompted</p>
-             <p>2. Select a 3D model from the top-right menu</p>
-             <p>3. Click "Place Model" to add it in front of your camera</p>
-             <p>4. The 3D object will appear floating in your camera view</p>
-             <p><strong>Note:</strong> This requires HTTPS and camera permission.</p>
-             <button class="ui-button" onclick="hideInstructions()">Got it!</button>
-         </div>
-        
-        <div id="model-selector">
-            <h4 style="color: white; margin: 0 0 10px 0;">Select Model:</h4>
-            <div class="model-option selected" onclick="selectModel(event, 'cube')">Cube</div>
-            <div class="model-option" onclick="selectModel(event, 'sphere')">Sphere</div>
-            <div class="model-option" onclick="selectModel(event, 'cylinder')">Cylinder</div>
-            <div class="model-option" onclick="selectModel(event, 'nortec')">Nortec 600D</div>
+            <div id="instructions">
+            <h3>Krosno AR Experience</h3>
+            <p>1. Allow camera access when prompted</p>
+            <p>2. Click "Place Model" to add it in front of your camera</p>
+            <p>3. The 3D object will appear floating in your camera view</p>
+            <p><strong>Note:</strong> This requires HTTPS and camera permission.</p>
+            <button class="ui-button" onclick="hideInstructions()">Got it!</button>
         </div>
         
         <button id="place-button" class="ui-button" onclick="placeModel()">
             Place Model
         </button>
         
-        <button id="test-button" class="ui-button" onclick="testPlacement()" style="bottom: 130px; left: 50%; transform: translateX(-50%); background: rgba(0, 255, 0, 0.8);">
-            Test Placement
-        </button>
-        
         <button id="force-camera" class="ui-button" onclick="forceCameraReady()" style="bottom: 80px; left: 50%; transform: translateX(-50%); background: rgba(255, 165, 0, 0.8);">
             Force Camera Ready
         </button>
-        
-        
     </div>
 
-                   <a-scene
-          vr-mode-ui="enabled: false"
-          arjs="sourceType: webcam; videoTexture: true; debugUIEnabled: false;"
-          renderer="logarithmicDepthBuffer: true;"
-          arjs-look-controls="smoothingFactor: 0.1">
+    <a-scene
+        vr-mode-ui="enabled: false"
+        arjs="sourceType: webcam; videoTexture: true; debugUIEnabled: false;"
+        renderer="logarithmicDepthBuffer: true;"
+        arjs-look-controls="smoothingFactor: 0.1">
 
-          <!-- Simple camera without QR detection -->
-          <a-camera gps-camera rotation-reader id="mainCamera"></a-camera>
+        <!-- Simple camera without QR detection -->
+        <a-camera gps-camera rotation-reader id="mainCamera"></a-camera>
 
-          <!-- Lighting -->
-          <a-light type="ambient" color="#ffffff" intensity="0.6"></a-light>
-          <a-light type="directional" color="#ffffff" intensity="0.8" position="0 1 0"></a-light>
+        <!-- Lighting -->
+        <a-light type="ambient" color="#ffffff" intensity="0.6"></a-light>
+        <a-light type="directional" color="#ffffff" intensity="0.8" position="0 1 0"></a-light>
 
-      </a-scene>
+    </a-scene>
 
     <script>
-        let selectedModel = 'cube';
         let modelCount = 0;
         let cameraInitialized = false;
 
@@ -240,20 +221,6 @@
             document.getElementById('instructions').style.display = 'none';
         }
 
-        function selectModel(event, modelType) {
-            selectedModel = modelType;
-            
-            // Update UI
-            document.querySelectorAll('.model-option').forEach(option => {
-                option.classList.remove('selected');
-            });
-            
-            // Find the clicked element and add selected class
-            event.target.classList.add('selected');
-            
-            console.log('Model selected:', modelType);
-        }
-
         function placeModel() {
             console.log('placeModel called');
             if (!cameraInitialized) {
@@ -261,67 +228,31 @@
                 return;
             }
             
-            console.log('placeModel called for:', selectedModel);
-            
-                         // Get the main camera element
-             const camera = document.querySelector('#mainCamera');
-             if (!camera) {
-                 alert('Camera not found. Please make sure the AR setup is correct.');
-                 return;
-             }
-            
-            // Create model based on selection
-            let model;
-            switch(selectedModel) {
-                case 'sphere':
-                    model = document.createElement('a-sphere');
-                    model.setAttribute('radius', '0.5');
-                    model.setAttribute('color', '#ff6b6b');
-                    break;
-                case 'cylinder':
-                    model = document.createElement('a-cylinder');
-                    model.setAttribute('radius', '0.5');
-                    model.setAttribute('height', '1');
-                    model.setAttribute('color', '#4ecdc4');
-                    break;
-                case 'nortec':
-                    model = document.createElement('a-entity');
-                    model.setAttribute('gltf-model', './models/Nortec600D.glb');
-                    model.setAttribute('scale', '0.5 0.5 0.5');
-                    break;
-                default: // cube
-                    model = document.createElement('a-box');
-                    model.setAttribute('width', '1');
-                    model.setAttribute('height', '1');
-                    model.setAttribute('depth', '1');
-                    model.setAttribute('color', '#45b7d1');
-                    break;
+            // Get the main camera element
+            const camera = document.querySelector('#mainCamera');
+            if (!camera) {
+                alert('Camera not found. Please make sure the AR setup is correct.');
+                return;
             }
             
-                         // Place model in front of the camera
-             model.setAttribute('position', '0 0 -2'); // 2 units in front of camera
-            if (selectedModel !== 'nortec') {
-                model.setAttribute('animation', 'property: rotation; to: 0 360 0; dur: 5000; loop: true');
-            }
+            // Always place the attached GLB model
+            let model = document.createElement('a-entity');
+            model.setAttribute('gltf-model', './models/7579_3K.glb');
+            model.setAttribute('scale', '0.5 0.5 0.5');
+            model.setAttribute('position', '0 0 -2'); // 2 units in front of camera
             model.setAttribute('class', 'ar-model');
             model.setAttribute('data-model-id', modelCount++);
-            
             // Add click interaction
             model.addEventListener('click', function() {
-                this.setAttribute('scale', '1.2 1.2 1.2');
+                this.setAttribute('scale', '0.6 0.6 0.6');
                 setTimeout(() => {
-                    this.setAttribute('scale', selectedModel === 'nortec' ? '0.5 0.5 0.5' : '1 1 1');
+                    this.setAttribute('scale', '0.5 0.5 0.5');
                 }, 200);
             });
-            
-                         // Add to camera so it appears in front of the camera
-             camera.appendChild(model);
-             
-             console.log('Model placed in front of camera:', selectedModel);
-             console.log('Camera children count:', camera.children.length);
-            
-                         // Show success message
-             alert(`Model placed successfully! You should see the ${selectedModel} floating in front of your camera.`);
+            camera.appendChild(model);
+            console.log('Model placed in front of camera: 7579_3K.glb');
+            console.log('Camera children count:', camera.children.length);
+            alert('Model placed successfully! You should see the 3D model floating in front of your camera.');
         }
 
                  // Handle AR session start
