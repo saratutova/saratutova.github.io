@@ -29,23 +29,23 @@
              }
          }
          
-                                       /* AR.js video and canvas fixes */
-           video {
-               position: fixed !important;
-               top: 0 !important;
-               left: 0 !important;
-               width: 100vw !important;
-               height: 100vh !important;
-               object-fit: cover !important;
-               z-index: -2 !important;
-           }
-           
-           /* Mobile-specific video fixes */
-           @media (max-width: 768px) {
-               video {
-                   object-fit: cover !important;
-               }
-           }
+                                                                               /* AR.js video and canvas fixes */
+            video {
+                position: fixed !important;
+                top: 0 !important;
+                left: 0 !important;
+                width: 100vw !important;
+                height: 100vh !important;
+                object-fit: fill !important;
+                z-index: -2 !important;
+            }
+            
+            /* Mobile-specific video fixes */
+            @media (max-width: 768px) {
+                video {
+                    object-fit: fill !important;
+                }
+            }
          
          .a-canvas {
              position: fixed !important;
@@ -207,20 +207,20 @@
                  if (window.innerWidth <= 768) {
                      console.log('Mobile device detected, applying video fixes');
                      
-                     // Force video positioning for mobile (no scaling to preserve AR tracking)
-                     video.style.position = 'fixed';
-                     video.style.top = '0';
-                     video.style.left = '0';
-                     video.style.width = '100vw';
-                     video.style.height = '100vh';
-                     video.style.objectFit = 'cover';
-                     video.style.zIndex = '-2';
-                     
-                     // Ensure video covers the full screen
-                     video.addEventListener('loadedmetadata', function() {
-                         console.log('Video metadata loaded, dimensions:', video.videoWidth, 'x', video.videoHeight);
-                         video.style.objectFit = 'cover';
-                     });
+                                           // Force video positioning for mobile (fill entire screen)
+                      video.style.position = 'fixed';
+                      video.style.top = '0';
+                      video.style.left = '0';
+                      video.style.width = '100vw';
+                      video.style.height = '100vh';
+                      video.style.objectFit = 'fill';
+                      video.style.zIndex = '-2';
+                      
+                      // Ensure video fills the full screen
+                      video.addEventListener('loadedmetadata', function() {
+                          console.log('Video metadata loaded, dimensions:', video.videoWidth, 'x', video.videoHeight);
+                          video.style.objectFit = 'fill';
+                      });
                  }
                 
                 return true;
@@ -295,17 +295,17 @@
          window.addEventListener('orientationchange', function() {
              console.log('Orientation changed');
              setTimeout(function() {
-                 // Re-apply video fixes after orientation change (no scaling)
-                 const video = document.querySelector('video');
-                 if (video && window.innerWidth <= 768) {
-                     video.style.position = 'fixed';
-                     video.style.top = '0';
-                     video.style.left = '0';
-                     video.style.width = '100vw';
-                     video.style.height = '100vh';
-                     video.style.objectFit = 'cover';
-                     video.style.zIndex = '-2';
-                 }
+                                   // Re-apply video fixes after orientation change (fill entire screen)
+                  const video = document.querySelector('video');
+                  if (video && window.innerWidth <= 768) {
+                      video.style.position = 'fixed';
+                      video.style.top = '0';
+                      video.style.left = '0';
+                      video.style.width = '100vw';
+                      video.style.height = '100vh';
+                      video.style.objectFit = 'fill';
+                      video.style.zIndex = '-2';
+                  }
              }, 500);
          });
         
