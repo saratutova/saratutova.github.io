@@ -176,7 +176,7 @@
         document.addEventListener('model-loaded', function(e) {
             console.log('Model loaded successfully:', e.detail);
             
-            // Force model to be visible by fixing materials
+            // Fix model materials to ensure visibility without destroying textures
             setTimeout(function() {
                 const modelEntity = document.querySelector('[gltf-model="#model"]');
                 if (modelEntity && modelEntity.object3D) {
@@ -187,26 +187,35 @@
                         if (child.material) {
                             console.log('Found material:', child.material);
                             
-                            // Force material to be visible
+                            // Only fix visibility issues, preserve textures
                             child.material.transparent = false;
                             child.material.opacity = 1.0;
                             child.material.needsUpdate = true;
                             
-                            // If it's a MeshStandardMaterial, set basic properties
-                            if (child.material.type === 'MeshStandardMaterial') {
-                                child.material.metalness = 0.0;
-                                child.material.roughness = 0.5;
-                                child.material.color.setHex(0xffffff);
+                            // Don't override colors - preserve original textures
+                            // Only fix if the material is completely black
+                            if (child.material.color && 
+                                child.material.color.r === 0 && 
+                                child.material.color.g === 0 && 
+                                child.material.color.b === 0) {
+                                console.log('Found black material, applying default color');
+                                child.material.color.setHex(0xcccccc); // Light gray instead of white
                             }
                             
-                            // If it's a MeshBasicMaterial, ensure it's visible
-                            if (child.material.type === 'MeshBasicMaterial') {
-                                child.material.color.setHex(0xffffff);
+                            // Ensure proper lighting for MeshStandardMaterial
+                            if (child.material.type === 'MeshStandardMaterial') {
+                                // Only set if not already set
+                                if (child.material.metalness === undefined || child.material.metalness === 1.0) {
+                                    child.material.metalness = 0.0;
+                                }
+                                if (child.material.roughness === undefined || child.material.roughness === 0.0) {
+                                    child.material.roughness = 0.5;
+                                }
                             }
                         }
                     });
                     
-                    console.log('Model materials fixed');
+                    console.log('Model materials fixed (textures preserved)');
                 }
             }, 1000);
         });
