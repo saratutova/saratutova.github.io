@@ -176,19 +176,11 @@
             <div id="instructions">
             <h3>Krosno AR Experience</h3>
             <p>1. Allow camera access when prompted</p>
-            <p>2. Click "Place Model" to add it in front of your camera</p>
-            <p>3. The 3D object will appear floating in your camera view</p>
+            <p>2. Point your camera at the Hiro marker</p>
+            <p>3. The 3D object will appear on the marker and you can walk around it</p>
             <p><strong>Note:</strong> This requires HTTPS and camera permission.</p>
             <button class="ui-button" onclick="hideInstructions()">Got it!</button>
         </div>
-        
-        <button id="place-button" class="ui-button" onclick="placeModel()">
-            Place Model
-        </button>
-        
-        <button id="force-camera" class="ui-button" onclick="forceCameraReady()" style="bottom: 80px; left: 50%; transform: translateX(-50%); background: rgba(255, 165, 0, 0.8);">
-            Force Camera Ready
-        </button>
     </div>
 
     <a-scene
@@ -197,13 +189,16 @@
         renderer="logarithmicDepthBuffer: true;"
         arjs-look-controls="smoothingFactor: 0.1">
 
-        <!-- Simple camera without QR detection -->
-        <a-camera gps-camera rotation-reader id="mainCamera"></a-camera>
+        <!-- Marker-based AR: Hiro marker -->
+        <a-marker preset="hiro">
+            <a-entity gltf-model="./models/7579_3K.glb" scale="0.5 0.5 0.5"></a-entity>
+            <!-- Lighting for the model -->
+            <a-light type="ambient" color="#ffffff" intensity="0.8"></a-light>
+            <a-light type="directional" color="#ffffff" intensity="0.8" position="0 1 0"></a-light>
+        </a-marker>
 
-        <!-- Lighting -->
-        <a-light type="ambient" color="#ffffff" intensity="0.6"></a-light>
-        <a-light type="directional" color="#ffffff" intensity="0.8" position="0 1 0"></a-light>
-
+        <!-- Simple camera -->
+        <a-entity camera></a-entity>
     </a-scene>
 
     <script>
@@ -221,47 +216,13 @@
             document.getElementById('instructions').style.display = 'none';
         }
 
-        function placeModel() {
-            console.log('placeModel called');
-            if (!cameraInitialized) {
-                alert('Camera not ready. Please wait for camera initialization or check camera permissions.');
-                return;
-            }
-            
-            // Get the main camera element
-            const camera = document.querySelector('#mainCamera');
-            if (!camera) {
-                alert('Camera not found. Please make sure the AR setup is correct.');
-                return;
-            }
-            
-            // Always place the attached GLB model
-            let model = document.createElement('a-entity');
-            model.setAttribute('gltf-model', './models/7579_3K.glb');
-            model.setAttribute('scale', '0.5 0.5 0.5');
-            model.setAttribute('position', '0 0 -2'); // 2 units in front of camera
-            model.setAttribute('class', 'ar-model');
-            model.setAttribute('data-model-id', modelCount++);
-            // Add click interaction
-            model.addEventListener('click', function() {
-                this.setAttribute('scale', '0.6 0.6 0.6');
-                setTimeout(() => {
-                    this.setAttribute('scale', '0.5 0.5 0.5');
-                }, 200);
-            });
-            camera.appendChild(model);
-            console.log('Model placed in front of camera: 7579_3K.glb');
-            console.log('Camera children count:', camera.children.length);
-            alert('Model placed successfully! You should see the 3D model floating in front of your camera.');
-        }
-
-                 // Handle AR session start
-         document.addEventListener('arjs-loaded', function(event) {
-             console.log('AR session started');
-             cameraInitialized = true;
-             document.getElementById('camera-status').textContent = 'Camera: Ready';
-             hideCameraStatus();
-         });
+        // Handle AR session start
+        document.addEventListener('arjs-loaded', function(event) {
+            console.log('AR session started');
+            cameraInitialized = true;
+            document.getElementById('camera-status').textContent = 'Camera: Ready';
+            hideCameraStatus();
+        });
 
         // Handle camera initialization
         document.addEventListener('camera-init', function(event) {
@@ -379,7 +340,7 @@
             
             // Swipe up to place model
             if (diff > 50) {
-                placeModel();
+                // placeModel(); // This function is removed
             }
         });
 
