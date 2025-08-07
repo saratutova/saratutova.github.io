@@ -29,29 +29,29 @@
              }
          }
          
-                                                                                                                                                               /* AR.js video and canvas fixes */
-             video, #arjs-video {
-                 position: fixed !important;
-                 top: 0 !important;
-                 left: 0 !important;
-                 width: 100vw !important;
-                 height: 100vh !important;
-                 object-fit: fill !important;
-                 z-index: -2 !important;
-                 margin: 0 !important;
-                 padding: 0 !important;
-             }
+                                                                                                                                                                                                                                                                                                                               /* AR.js video and canvas fixes */
+              video, #arjs-video {
+                  position: fixed !important;
+                  top: 0 !important;
+                  left: 0 !important;
+                  width: 100vw !important;
+                  height: 100vh !important;
+                  object-fit: cover !important;
+                  z-index: -2 !important;
+                  margin: 0 !important;
+                  padding: 0 !important;
+              }
              
-             /* Mobile-specific video fixes */
-             @media (max-width: 768px) {
-                 video, #arjs-video {
-                     object-fit: fill !important;
-                     width: 100vw !important;
-                     height: 100vh !important;
-                     margin: 0 !important;
-                     padding: 0 !important;
-                 }
-             }
+                           /* Mobile-specific video fixes */
+              @media (max-width: 768px) {
+                  video, #arjs-video {
+                      object-fit: cover !important;
+                      width: 100vw !important;
+                      height: 100vh !important;
+                      margin: 0 !important;
+                      padding: 0 !important;
+                  }
+              }
          
                    .a-canvas {
               position: fixed !important;
@@ -225,27 +225,27 @@
                  // Force video to fill entire screen (both desktop and mobile)
                  console.log('Applying full-screen video fixes');
                  
-                 // Remove any margins or padding that might be causing white space
-                 video.style.position = 'fixed';
-                 video.style.top = '0';
-                 video.style.left = '0';
-                 video.style.width = '100vw';
-                 video.style.height = '100vh';
-                 video.style.objectFit = 'fill';
-                 video.style.zIndex = '-2';
-                 video.style.margin = '0';
-                 video.style.padding = '0';
-                 video.style.transform = 'none';
-                 
-                 // Ensure video fills the full screen
-                 video.addEventListener('loadedmetadata', function() {
-                     console.log('Video metadata loaded, dimensions:', video.videoWidth, 'x', video.videoHeight);
-                     video.style.objectFit = 'fill';
-                     video.style.width = '100vw';
-                     video.style.height = '100vh';
-                     video.style.margin = '0';
-                     video.style.padding = '0';
-                 });
+                                   // Remove any margins or padding that might be causing white space
+                  video.style.position = 'fixed';
+                  video.style.top = '0';
+                  video.style.left = '0';
+                  video.style.width = '100vw';
+                  video.style.height = '100vh';
+                  video.style.objectFit = 'cover';
+                  video.style.zIndex = '-2';
+                  video.style.margin = '0';
+                  video.style.padding = '0';
+                  video.style.transform = 'none';
+                  
+                  // Ensure video covers the full screen without distortion
+                  video.addEventListener('loadedmetadata', function() {
+                      console.log('Video metadata loaded, dimensions:', video.videoWidth, 'x', video.videoHeight);
+                      video.style.objectFit = 'cover';
+                      video.style.width = '100vw';
+                      video.style.height = '100vh';
+                      video.style.margin = '0';
+                      video.style.padding = '0';
+                  });
                  
                  return true;
              } else {
@@ -319,7 +319,7 @@
          window.addEventListener('orientationchange', function() {
              console.log('Orientation changed');
              setTimeout(function() {
-                                   // Re-apply video fixes after orientation change (fill entire screen)
+                                   // Re-apply video fixes after orientation change (cover entire screen)
                   const video = document.querySelector('video') || document.querySelector('#arjs-video');
                   if (video) {
                       video.style.position = 'fixed';
@@ -327,7 +327,7 @@
                       video.style.left = '0';
                       video.style.width = '100vw';
                       video.style.height = '100vh';
-                      video.style.objectFit = 'fill';
+                      video.style.objectFit = 'cover';
                       video.style.zIndex = '-2';
                       video.style.margin = '0';
                       video.style.padding = '0';
