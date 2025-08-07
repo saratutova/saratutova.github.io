@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📱</text></svg>">
     <script src="https://aframe.io/releases/1.2.0/aframe.min.js"></script>
-         <script src="https://cdn.jsdelivr.net/gh/AR-js-org/AR.js@3.3.2/aframe/build/aframe-ar.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/AR-js-org/AR.js@3.2.4/aframe/build/aframe-ar.min.js"></script>
     <style>
         body {
             margin: 0;
@@ -197,36 +197,18 @@
             </div>
         </div>
 
-    <a-scene
+        <a-scene
         vr-mode-ui="enabled: false"
-        arjs="sourceType: webcam; debugUIEnabled: false; detectionMode: mono; matrixCodeType: 3x3;"
-        renderer="logarithmicDepthBuffer: true; antialias: true; alpha: true;"
-        embedded
-        inspector>
-
-
-
-        <!-- Marker-based AR: Hiro marker -->
-        <a-marker preset="hiro" id="hiro-marker">
-            <!-- Simple test cube first -->
-            <a-box 
-                position="0 0.5 0" 
-                scale="0.5 0.5 0.5" 
-                color="#ff0000" 
-                id="test-cube">
-            </a-box>
-            
-            <!-- Simple sphere for testing -->
-            <a-sphere 
-                position="0 -0.5 0" 
-                radius="0.3" 
-                color="#00ff00" 
-                id="test-sphere">
-            </a-sphere>
-        </a-marker>
+        arjs="sourceType: webcam; debugUIEnabled: true;"
+        embedded>
 
         <!-- Camera -->
-        <a-entity camera id="ar-camera"></a-entity>
+        <a-entity camera></a-entity>
+
+        <!-- Marker-based AR: Hiro marker -->
+        <a-marker preset="hiro">
+            <a-box position="0 0.5 0" scale="0.5 0.5 0.5" color="#ff0000"></a-box>
+        </a-marker>
 
         <!-- Global lighting -->
         <a-light type="ambient" color="#ffffff" intensity="0.6"></a-light>
@@ -258,11 +240,11 @@
 
         // Handle marker detection
         document.addEventListener('DOMContentLoaded', function() {
-            const marker = document.querySelector('#hiro-marker');
+            const marker = document.querySelector('a-marker');
             if (marker) {
                 marker.addEventListener('markerFound', function() {
                     console.log('Hiro marker found!');
-                    document.getElementById('marker-status').textContent = 'Marker: Found! Model should be visible';
+                    document.getElementById('marker-status').textContent = 'Marker: Found! Red cube should be visible';
                     document.getElementById('marker-status').style.background = 'rgba(0, 255, 0, 0.7)';
                 });
 
@@ -272,30 +254,6 @@
                     document.getElementById('marker-status').style.background = 'rgba(0, 0, 0, 0.7)';
                 });
             }
-
-            // Debug: Log when scene loads
-            const scene = document.querySelector('a-scene');
-            scene.addEventListener('loaded', function() {
-                console.log('A-Frame scene loaded');
-                
-                // Check if test objects are visible
-                setTimeout(() => {
-                    const testCube = document.querySelector('#test-cube');
-                    const testSphere = document.querySelector('#test-sphere');
-                    
-                    if (testCube) {
-                        console.log('Test cube found:', testCube);
-                        console.log('Test cube object3D:', testCube.object3D);
-                        console.log('Test cube visible:', testCube.object3D.visible);
-                    }
-                    
-                    if (testSphere) {
-                        console.log('Test sphere found:', testSphere);
-                        console.log('Test sphere object3D:', testSphere.object3D);
-                        console.log('Test sphere visible:', testSphere.object3D.visible);
-                    }
-                }, 2000);
-            });
         });
 
         // Handle camera initialization
