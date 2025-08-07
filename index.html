@@ -3,40 +3,78 @@
 <head>
     <title>AR.js Basic Example</title>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
     <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
     <script src="https://cdn.jsdelivr.net/gh/AR-js-org/AR.js@3.4.4/aframe/build/aframe-ar.min.js"></script>
-    <style>
-        body {
-            margin: 0;
-            padding: 0;
-            font-family: Arial, sans-serif;
-        }
-        
-        #status {
-            position: fixed;
-            top: 20px;
-            left: 20px;
-            background: rgba(0, 0, 0, 0.7);
-            color: white;
-            padding: 10px;
-            border-radius: 5px;
-            z-index: 1000;
-        }
-        
-        #instructions {
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: rgba(0, 0, 0, 0.8);
-            color: white;
-            padding: 20px;
-            border-radius: 10px;
-            text-align: center;
-            z-index: 1000;
-        }
-    </style>
+         <style>
+         body {
+             margin: 0;
+             padding: 0;
+             font-family: Arial, sans-serif;
+             overflow: hidden;
+             position: fixed;
+             width: 100vw;
+             height: 100vh;
+         }
+         
+         /* Mobile-specific fixes */
+         @media (max-width: 768px) {
+             body {
+                 position: fixed;
+                 top: 0;
+                 left: 0;
+                 width: 100vw;
+                 height: 100vh;
+                 overflow: hidden;
+             }
+         }
+         
+         /* AR.js video and canvas fixes */
+         video {
+             position: fixed !important;
+             top: 0 !important;
+             left: 0 !important;
+             width: 100vw !important;
+             height: 100vh !important;
+             object-fit: cover !important;
+             z-index: -2 !important;
+         }
+         
+         .a-canvas {
+             position: fixed !important;
+             top: 0 !important;
+             left: 0 !important;
+             width: 100vw !important;
+             height: 100vh !important;
+             z-index: -1 !important;
+         }
+         
+         #status {
+             position: fixed;
+             top: 20px;
+             left: 20px;
+             background: rgba(0, 0, 0, 0.7);
+             color: white;
+             padding: 10px;
+             border-radius: 5px;
+             z-index: 1000;
+             font-size: 14px;
+         }
+         
+         #instructions {
+             position: fixed;
+             top: 50%;
+             left: 50%;
+             transform: translate(-50%, -50%);
+             background: rgba(0, 0, 0, 0.8);
+             color: white;
+             padding: 20px;
+             border-radius: 10px;
+             text-align: center;
+             z-index: 1000;
+             max-width: 90vw;
+         }
+     </style>
 </head>
 <body>
     <div id="status">Camera: Initializing...</div>
@@ -49,10 +87,11 @@
         <button onclick="this.parentElement.style.display='none'">Got it!</button>
     </div>
 
-    <a-scene
-        vr-mode-ui="enabled: false"
-        arjs="sourceType: webcam; debugUIEnabled: true;"
-        embedded>
+         <a-scene
+         vr-mode-ui="enabled: false"
+         arjs="sourceType: webcam; debugUIEnabled: false; videoTexture: true; videoTextureRatio: 1;"
+         embedded
+         renderer="logarithmicDepthBuffer: true; antialias: true;">
 
         <!-- Assets -->
         <a-assets>
@@ -156,6 +195,27 @@
                 console.log('Video element found:', video);
                 console.log('Video readyState:', video.readyState);
                 document.getElementById('status').textContent = 'Camera: Video found';
+                
+                // Mobile-specific video fixes
+                if (window.innerWidth <= 768) {
+                    console.log('Mobile device detected, applying video fixes');
+                    
+                    // Force video positioning for mobile
+                    video.style.position = 'fixed';
+                    video.style.top = '0';
+                    video.style.left = '0';
+                    video.style.width = '100vw';
+                    video.style.height = '100vh';
+                    video.style.objectFit = 'cover';
+                    video.style.zIndex = '-2';
+                    
+                    // Ensure video covers the full screen
+                    video.addEventListener('loadedmetadata', function() {
+                        console.log('Video metadata loaded, dimensions:', video.videoWidth, 'x', video.videoHeight);
+                        video.style.objectFit = 'cover';
+                    });
+                }
+                
                 return true;
             } else {
                 console.log('No video element found yet');
@@ -224,6 +284,24 @@
             console.error('Model failed to load:', e.detail);
         });
 
+        // Handle mobile orientation changes
+        window.addEventListener('orientationchange', function() {
+            console.log('Orientation changed');
+            setTimeout(function() {
+                // Re-apply video fixes after orientation change
+                const video = document.querySelector('video');
+                if (video && window.innerWidth <= 768) {
+                    video.style.position = 'fixed';
+                    video.style.top = '0';
+                    video.style.left = '0';
+                    video.style.width = '100vw';
+                    video.style.height = '100vh';
+                    video.style.objectFit = 'cover';
+                    video.style.zIndex = '-2';
+                }
+            }, 500);
+        });
+        
         // Check HTTPS
         if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
             alert('AR requires HTTPS. Please access via HTTPS or localhost.');
