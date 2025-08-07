@@ -41,10 +41,10 @@
 <body>
     <div id="status">Camera: Initializing...</div>
     <div id="instructions">
-        <h3>AR.js Basic Example</h3>
+        <h3>Krosno AR Experience</h3>
         <p>1. Allow camera access</p>
         <p>2. Point camera at Hiro marker</p>
-        <p>3. You should see a red cube</p>
+        <p>3. You should see your 3D model</p>
         <p><a href="https://raw.githubusercontent.com/AR-js-org/AR.js/master/aframe/examples/marker-training/examples/pattern-files/pattern-hiro.png" target="_blank" style="color: #4ecdc4;">Download Hiro marker</a></p>
         <button onclick="this.parentElement.style.display='none'">Got it!</button>
     </div>
@@ -54,8 +54,18 @@
         arjs="sourceType: webcam; debugUIEnabled: true;"
         embedded>
 
+        <!-- Assets -->
+        <a-assets>
+            <a-asset-item id="model" src="./models/7579_3K.glb"></a-asset-item>
+        </a-assets>
+
         <a-marker preset="hiro">
-            <a-box position="0 0.5 0" scale="0.5 0.5 0.5" color="#ff0000"></a-box>
+            <a-entity 
+                gltf-model="#model" 
+                scale="0.5 0.5 0.5" 
+                position="0 0 0"
+                rotation="0 0 0">
+            </a-entity>
         </a-marker>
 
         <a-entity camera></a-entity>
