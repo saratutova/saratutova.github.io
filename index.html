@@ -62,10 +62,15 @@
         <a-marker preset="hiro">
             <a-entity 
                 gltf-model="#model" 
-                scale="0.5 0.5 0.5" 
+                scale="0.1 0.1 0.1" 
                 position="0 0 0"
                 rotation="0 0 0">
             </a-entity>
+            
+            <!-- Lighting for the model -->
+            <a-light type="ambient" color="#ffffff" intensity="0.6"></a-light>
+            <a-light type="directional" color="#ffffff" intensity="0.8" position="0 1 0"></a-light>
+            <a-light type="directional" color="#ffffff" intensity="0.4" position="1 1 1"></a-light>
         </a-marker>
 
         <a-entity camera></a-entity>
