@@ -206,12 +206,28 @@
 
         <!-- Marker-based AR: Hiro marker -->
         <a-marker preset="hiro" id="hiro-marker">
+            <!-- Fallback test cube (visible immediately) -->
+            <a-box 
+                position="0 0.5 0" 
+                scale="0.3 0.3 0.3" 
+                color="#ff0000" 
+                id="test-cube">
+            </a-box>
+            
+            <!-- Main GLB model -->
             <a-entity 
                 gltf-model="#model" 
-                scale="0.5 0.5 0.5" 
+                scale="1 1 1" 
                 position="0 0 0"
-                rotation="0 0 0">
+                rotation="0 0 0"
+                id="main-model"
+                material="transparent: false; alphaTest: 0.5;"
+                shadow="cast: true; receive: true">
             </a-entity>
+            
+            <!-- Additional directional lighting for the model -->
+            <a-light type="directional" color="#ffffff" intensity="1.0" position="1 1 1"></a-light>
+            <a-light type="directional" color="#ffffff" intensity="0.5" position="-1 1 -1"></a-light>
         </a-marker>
 
         <!-- Camera -->
@@ -266,6 +282,43 @@
             const scene = document.querySelector('a-scene');
             scene.addEventListener('model-loaded', function(e) {
                 console.log('Model loaded:', e.detail);
+                
+                // Get the loaded model and inspect it
+                const modelEntity = document.querySelector('#main-model');
+                if (modelEntity) {
+                    setTimeout(() => {
+                        console.log('Model entity:', modelEntity);
+                        console.log('Model object3D:', modelEntity.object3D);
+                        console.log('Model visible:', modelEntity.object3D.visible);
+                        console.log('Model scale:', modelEntity.object3D.scale);
+                        console.log('Model position:', modelEntity.object3D.position);
+                        
+                        // Force visibility
+                        modelEntity.object3D.visible = true;
+                        
+                        // Check if model has children (mesh)
+                        if (modelEntity.object3D.children.length > 0) {
+                            console.log('Model has', modelEntity.object3D.children.length, 'children');
+                            modelEntity.object3D.children.forEach((child, index) => {
+                                console.log(`Child ${index}:`, child);
+                                child.visible = true;
+                                
+                                // If it's a mesh, ensure it's visible and properly lit
+                                if (child.material) {
+                                    console.log(`Child ${index} material:`, child.material);
+                                    if (child.material.transparent !== undefined) {
+                                        child.material.transparent = false;
+                                    }
+                                    if (child.material.opacity !== undefined) {
+                                        child.material.opacity = 1.0;
+                                    }
+                                }
+                            });
+                        } else {
+                            console.log('Model has no children - this might be the issue!');
+                        }
+                    }, 1000);
+                }
             });
 
             scene.addEventListener('model-error', function(e) {
