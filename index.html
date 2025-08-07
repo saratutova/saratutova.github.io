@@ -12,6 +12,10 @@
             margin: 0;
             padding: 0;
             font-family: Arial, sans-serif;
+            overflow: hidden;
+            position: fixed;
+            width: 100vw;
+            height: 100vh;
         }
         
                  #ui-overlay {
@@ -195,39 +199,30 @@
 
     <a-scene
         vr-mode-ui="enabled: false"
-        arjs="sourceType: webcam; debugUIEnabled: true; detectionMode: mono_and_matrix; matrixCodeType: 3x3;"
+        arjs="sourceType: webcam; debugUIEnabled: false; detectionMode: mono; matrixCodeType: 3x3;"
         renderer="logarithmicDepthBuffer: true; antialias: true; alpha: true;"
-        embedded>
+        embedded
+        inspector>
 
-        <!-- Assets -->
-        <a-assets>
-            <a-asset-item id="model" src="./models/7579_3K.glb"></a-asset-item>
-        </a-assets>
+
 
         <!-- Marker-based AR: Hiro marker -->
         <a-marker preset="hiro" id="hiro-marker">
-            <!-- Fallback test cube (visible immediately) -->
+            <!-- Simple test cube first -->
             <a-box 
                 position="0 0.5 0" 
-                scale="0.3 0.3 0.3" 
+                scale="0.5 0.5 0.5" 
                 color="#ff0000" 
                 id="test-cube">
             </a-box>
             
-            <!-- Main GLB model -->
-            <a-entity 
-                gltf-model="#model" 
-                scale="1 1 1" 
-                position="0 0 0"
-                rotation="0 0 0"
-                id="main-model"
-                material="transparent: false; alphaTest: 0.5;"
-                shadow="cast: true; receive: true">
-            </a-entity>
-            
-            <!-- Additional directional lighting for the model -->
-            <a-light type="directional" color="#ffffff" intensity="1.0" position="1 1 1"></a-light>
-            <a-light type="directional" color="#ffffff" intensity="0.5" position="-1 1 -1"></a-light>
+            <!-- Simple sphere for testing -->
+            <a-sphere 
+                position="0 -0.5 0" 
+                radius="0.3" 
+                color="#00ff00" 
+                id="test-sphere">
+            </a-sphere>
         </a-marker>
 
         <!-- Camera -->
@@ -278,53 +273,28 @@
                 });
             }
 
-            // Debug: Log when model loads
+            // Debug: Log when scene loads
             const scene = document.querySelector('a-scene');
-            scene.addEventListener('model-loaded', function(e) {
-                console.log('Model loaded:', e.detail);
+            scene.addEventListener('loaded', function() {
+                console.log('A-Frame scene loaded');
                 
-                // Get the loaded model and inspect it
-                const modelEntity = document.querySelector('#main-model');
-                if (modelEntity) {
-                    setTimeout(() => {
-                        console.log('Model entity:', modelEntity);
-                        console.log('Model object3D:', modelEntity.object3D);
-                        console.log('Model visible:', modelEntity.object3D.visible);
-                        console.log('Model scale:', modelEntity.object3D.scale);
-                        console.log('Model position:', modelEntity.object3D.position);
-                        
-                        // Force visibility
-                        modelEntity.object3D.visible = true;
-                        
-                        // Check if model has children (mesh)
-                        if (modelEntity.object3D.children.length > 0) {
-                            console.log('Model has', modelEntity.object3D.children.length, 'children');
-                            modelEntity.object3D.children.forEach((child, index) => {
-                                console.log(`Child ${index}:`, child);
-                                child.visible = true;
-                                
-                                // If it's a mesh, ensure it's visible and properly lit
-                                if (child.material) {
-                                    console.log(`Child ${index} material:`, child.material);
-                                    if (child.material.transparent !== undefined) {
-                                        child.material.transparent = false;
-                                    }
-                                    if (child.material.opacity !== undefined) {
-                                        child.material.opacity = 1.0;
-                                    }
-                                }
-                            });
-                        } else {
-                            console.log('Model has no children - this might be the issue!');
-                        }
-                    }, 1000);
-                }
-            });
-
-            scene.addEventListener('model-error', function(e) {
-                console.error('Model error:', e.detail);
-                document.getElementById('marker-status').textContent = 'Error: Model failed to load';
-                document.getElementById('marker-status').style.background = 'rgba(255, 0, 0, 0.7)';
+                // Check if test objects are visible
+                setTimeout(() => {
+                    const testCube = document.querySelector('#test-cube');
+                    const testSphere = document.querySelector('#test-sphere');
+                    
+                    if (testCube) {
+                        console.log('Test cube found:', testCube);
+                        console.log('Test cube object3D:', testCube.object3D);
+                        console.log('Test cube visible:', testCube.object3D.visible);
+                    }
+                    
+                    if (testSphere) {
+                        console.log('Test sphere found:', testSphere);
+                        console.log('Test sphere object3D:', testSphere.object3D);
+                        console.log('Test sphere visible:', testSphere.object3D.visible);
+                    }
+                }, 2000);
             });
         });
 
