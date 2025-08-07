@@ -64,8 +64,7 @@
                 gltf-model="#model" 
                 scale="0.1 0.1 0.1" 
                 position="0 0 0"
-                rotation="0 0 0"
-                material="shader: flat; color: #ffffff;">
+                rotation="0 0 0">
             </a-entity>
             
             <!-- Enhanced lighting for the model -->
@@ -176,6 +175,40 @@
         // Model loading debugging
         document.addEventListener('model-loaded', function(e) {
             console.log('Model loaded successfully:', e.detail);
+            
+            // Force model to be visible by fixing materials
+            setTimeout(function() {
+                const modelEntity = document.querySelector('[gltf-model="#model"]');
+                if (modelEntity && modelEntity.object3D) {
+                    console.log('Fixing model materials...');
+                    
+                    // Traverse all children and fix materials
+                    modelEntity.object3D.traverse(function(child) {
+                        if (child.material) {
+                            console.log('Found material:', child.material);
+                            
+                            // Force material to be visible
+                            child.material.transparent = false;
+                            child.material.opacity = 1.0;
+                            child.material.needsUpdate = true;
+                            
+                            // If it's a MeshStandardMaterial, set basic properties
+                            if (child.material.type === 'MeshStandardMaterial') {
+                                child.material.metalness = 0.0;
+                                child.material.roughness = 0.5;
+                                child.material.color.setHex(0xffffff);
+                            }
+                            
+                            // If it's a MeshBasicMaterial, ensure it's visible
+                            if (child.material.type === 'MeshBasicMaterial') {
+                                child.material.color.setHex(0xffffff);
+                            }
+                        }
+                    });
+                    
+                    console.log('Model materials fixed');
+                }
+            }, 1000);
         });
 
         document.addEventListener('model-error', function(e) {
