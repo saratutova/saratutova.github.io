@@ -1,10 +1,9 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Krosno AR Experience</title>
+    <title>Simple AR Test</title>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📱</text></svg>">
     <script src="https://aframe.io/releases/1.2.0/aframe.min.js"></script>
     <script src="https://cdn.jsdelivr.net/gh/AR-js-org/AR.js@3.2.4/aframe/build/aframe-ar.min.js"></script>
     <style>
@@ -12,76 +11,21 @@
             margin: 0;
             padding: 0;
             font-family: Arial, sans-serif;
-            overflow: hidden;
-            position: fixed;
-            width: 100vw;
-            height: 100vh;
         }
         
-                 #ui-overlay {
-             position: fixed;
-             top: 0;
-             left: 0;
-             width: 100%;
-             height: 100%;
-             pointer-events: none;
-             z-index: 9999;
-         }
-        
-        .ui-button {
-            position: absolute;
+        #status {
+            position: fixed;
+            top: 20px;
+            left: 20px;
             background: rgba(0, 0, 0, 0.7);
             color: white;
-            border: 2px solid white;
-            border-radius: 25px;
-            padding: 15px 25px;
-            font-size: 16px;
-            pointer-events: auto;
-            cursor: pointer;
-            transition: all 0.3s ease;
-        }
-        
-        .ui-button:hover {
-            background: rgba(255, 255, 255, 0.2);
-        }
-        
-        #place-button {
-            bottom: 30px;
-            left: 50%;
-            transform: translateX(-50%);
-        }
-        
-        #model-selector {
-            top: 30px;
-            right: 20px;
-            background: rgba(0, 0, 0, 0.8);
-            border-radius: 10px;
             padding: 10px;
-        }
-        
-        .model-option {
-            display: block;
-            margin: 5px 0;
-            padding: 8px 15px;
-            background: rgba(255, 255, 255, 0.1);
-            border: 1px solid rgba(255, 255, 255, 0.3);
             border-radius: 5px;
-            color: white;
-            cursor: pointer;
-            transition: background 0.3s ease;
-        }
-        
-        .model-option:hover {
-            background: rgba(255, 255, 255, 0.2);
-        }
-        
-        .model-option.selected {
-            background: rgba(0, 255, 0, 0.3);
-            border-color: #00ff00;
+            z-index: 1000;
         }
         
         #instructions {
-            position: absolute;
+            position: fixed;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
@@ -90,451 +34,61 @@
             padding: 20px;
             border-radius: 10px;
             text-align: center;
-            max-width: 300px;
-            pointer-events: auto;
+            z-index: 1000;
         }
-        
-        #loading {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.9);
-            color: white;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            z-index: 2000;
-        }
-        
-        .spinner {
-            border: 4px solid rgba(255, 255, 255, 0.3);
-            border-top: 4px solid white;
-            border-radius: 50%;
-            width: 40px;
-            height: 40px;
-            animation: spin 1s linear infinite;
-            margin-right: 15px;
-        }
-        
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-
-                 #camera-status {
-             position: absolute;
-             top: 20px;
-             left: 20px;
-             background: rgba(0, 0, 0, 0.7);
-             color: white;
-             padding: 10px;
-             border-radius: 5px;
-             font-size: 14px;
-             transition: opacity 0.5s ease;
-         }
-         
-                              /* Ensure video is visible and properly positioned */
-           video {
-               z-index: 1 !important;
-               position: fixed !important;
-               top: 0 !important;
-               left: 0 !important;
-               width: 100vw !important;
-               height: 100vh !important;
-               object-fit: cover !important;
-               background: black !important;
-               display: block !important;
-           }
-           
-           .a-canvas {
-               z-index: 2 !important;
-               pointer-events: none !important;
-               position: fixed !important;
-               top: 0 !important;
-               left: 0 !important;
-               width: 100vw !important;
-               height: 100vh !important;
-           }
-          
-          /* Force UI to be above everything */
-          #ui-overlay {
-              z-index: 99999 !important;
-          }
-          
-          .ui-button {
-              z-index: 100000 !important;
-          }
-          
-          #model-selector {
-              z-index: 100000 !important;
-          }
-        a-scene, .a-canvas {
-            width: 100vw !important;
-            height: 100vh !important;
-            min-height: 300px !important;
-            display: block !important;
-        }
-        
     </style>
 </head>
 <body>
-    <div id="loading">
-        <div class="spinner"></div>
-        <div>Loading AR Experience...</div>
+    <div id="status">Camera: Initializing...</div>
+    <div id="instructions">
+        <h3>AR Test</h3>
+        <p>1. Allow camera access</p>
+        <p>2. Point camera at Hiro marker</p>
+        <p>3. You should see a red cube</p>
+        <p><a href="https://raw.githubusercontent.com/AR-js-org/AR.js/master/aframe/examples/marker-training/examples/pattern-files/pattern-hiro.png" target="_blank" style="color: #4ecdc4;">Download Hiro marker</a></p>
+        <button onclick="this.parentElement.style.display='none'">Got it!</button>
     </div>
 
-            <div id="ui-overlay">
-            <div id="camera-status">Camera: Initializing...</div>
-            <div id="marker-status" style="position: absolute; top: 70px; left: 20px; background: rgba(0, 0, 0, 0.7); color: white; padding: 10px; border-radius: 5px; font-size: 14px;">
-                Marker: Looking for Hiro marker...
-            </div>
-                <div id="instructions">
-                <h3>Krosno AR Experience</h3>
-                <p>1. Allow camera access when prompted</p>
-                <p>2. Point your camera at the Hiro marker</p>
-                <p>3. The 3D object will appear on the marker and you can walk around it</p>
-                <p><strong>Download Hiro marker:</strong> <a href="https://raw.githubusercontent.com/AR-js-org/AR.js/master/aframe/examples/marker-training/examples/pattern-files/pattern-hiro.png" target="_blank" style="color: #4ecdc4;">Click here</a></p>
-                <p><strong>Note:</strong> This requires HTTPS and camera permission.</p>
-                <button class="ui-button" onclick="hideInstructions()">Got it!</button>
-            </div>
-        </div>
-
-        <a-scene
+    <a-scene
         vr-mode-ui="enabled: false"
         arjs="sourceType: webcam; debugUIEnabled: true;"
         embedded>
 
-        <!-- Camera -->
-        <a-entity camera></a-entity>
-
-        <!-- Marker-based AR: Hiro marker -->
         <a-marker preset="hiro">
             <a-box position="0 0.5 0" scale="0.5 0.5 0.5" color="#ff0000"></a-box>
         </a-marker>
 
-        <!-- Global lighting -->
-        <a-light type="ambient" color="#ffffff" intensity="0.6"></a-light>
-        <a-light type="directional" color="#ffffff" intensity="0.8" position="0 1 0"></a-light>
+        <a-entity camera></a-entity>
     </a-scene>
 
     <script>
-        let modelCount = 0;
-        let cameraInitialized = false;
-
-        // Hide loading screen when AR is ready
-        window.addEventListener('load', function() {
-            setTimeout(() => {
-                document.getElementById('loading').style.display = 'none';
-            }, 2000);
+        // Simple status updates
+        document.addEventListener('arjs-loaded', function() {
+            console.log('AR.js loaded');
+            document.getElementById('status').textContent = 'Camera: Ready';
         });
 
-        function hideInstructions() {
-            document.getElementById('instructions').style.display = 'none';
-        }
-
-        // Handle AR session start
-        document.addEventListener('arjs-loaded', function(event) {
-            console.log('AR session started');
-            cameraInitialized = true;
-            document.getElementById('camera-status').textContent = 'Camera: Ready';
-            hideCameraStatus();
-        });
-
-        // Handle marker detection
         document.addEventListener('DOMContentLoaded', function() {
             const marker = document.querySelector('a-marker');
             if (marker) {
                 marker.addEventListener('markerFound', function() {
-                    console.log('Hiro marker found!');
-                    document.getElementById('marker-status').textContent = 'Marker: Found! Red cube should be visible';
-                    document.getElementById('marker-status').style.background = 'rgba(0, 255, 0, 0.7)';
+                    console.log('Marker found!');
+                    document.getElementById('status').textContent = 'Marker: Found!';
+                    document.getElementById('status').style.background = 'rgba(0, 255, 0, 0.7)';
                 });
 
                 marker.addEventListener('markerLost', function() {
-                    console.log('Hiro marker lost');
-                    document.getElementById('marker-status').textContent = 'Marker: Looking for Hiro marker...';
-                    document.getElementById('marker-status').style.background = 'rgba(0, 0, 0, 0.7)';
+                    console.log('Marker lost');
+                    document.getElementById('status').textContent = 'Camera: Ready';
+                    document.getElementById('status').style.background = 'rgba(0, 0, 0, 0.7)';
                 });
             }
         });
-
-        // Handle camera initialization
-        document.addEventListener('camera-init', function(event) {
-            console.log('Camera initialized');
-            cameraInitialized = true;
-            document.getElementById('camera-status').textContent = 'Camera: Ready';
-            hideCameraStatus();
-        });
-
-        // Alternative camera detection - check if video stream is active
-        function checkCameraStatus() {
-            // Check if AR.js video element exists and is playing
-            const videoElement = document.querySelector('video');
-            if (videoElement && videoElement.readyState >= 2) {
-                console.log('AR.js video detected and ready');
-                cameraInitialized = true;
-                document.getElementById('camera-status').textContent = 'Camera: Ready';
-                hideForceCameraButton();
-                hideCameraStatus();
-                return;
-            }
-            
-            const scene = document.querySelector('a-scene');
-            if (scene && scene.systems && scene.systems.arjs) {
-                const arjsSystem = scene.systems.arjs;
-                if (arjsSystem.arProfile && arjsSystem.arProfile.sourceParameters) {
-                    console.log('AR.js system detected');
-                    cameraInitialized = true;
-                    document.getElementById('camera-status').textContent = 'Camera: Ready';
-                    hideForceCameraButton();
-                    hideCameraStatus();
-                    return;
-                }
-            }
-            
-            // Check if we can access the camera directly
-            navigator.mediaDevices.getUserMedia({ video: true })
-                .then(function(stream) {
-                    console.log('Camera stream detected');
-                    cameraInitialized = true;
-                    document.getElementById('camera-status').textContent = 'Camera: Ready';
-                    hideForceCameraButton();
-                    hideCameraStatus();
-                    // Stop the stream since AR.js will handle it
-                    stream.getTracks().forEach(track => track.stop());
-                })
-                .catch(function(err) {
-                    console.log('Camera access error:', err);
-                    document.getElementById('camera-status').textContent = 'Camera: Access Denied';
-                });
-        }
-
-        // Hide force camera button when camera is ready
-        function hideForceCameraButton() {
-            const forceButton = document.getElementById('force-camera');
-            if (forceButton) {
-                forceButton.style.display = 'none';
-            }
-        }
-
-        // Hide camera status after camera is ready
-        function hideCameraStatus() {
-            const cameraStatus = document.getElementById('camera-status');
-            if (cameraStatus) {
-                setTimeout(() => {
-                    cameraStatus.style.opacity = '0';
-                    setTimeout(() => {
-                        cameraStatus.style.display = 'none';
-                    }, 500);
-                }, 2000); // Hide after 2 seconds
-            }
-        }
-
-        // Check camera status after a delay
-        setTimeout(checkCameraStatus, 3000);
-        
-        // Also check when the scene is loaded
-        document.addEventListener('DOMContentLoaded', function() {
-            setTimeout(checkCameraStatus, 1000);
-        });
-        
-        // Continuous check every 2 seconds until camera is ready
-        const cameraCheckInterval = setInterval(function() {
-            if (!cameraInitialized) {
-                checkCameraStatus();
-            } else {
-                clearInterval(cameraCheckInterval);
-            }
-        }, 2000);
-
-        // Handle errors
-        document.addEventListener('camera-error', function(error) {
-            console.error('Camera error:', error);
-            document.getElementById('camera-status').textContent = 'Camera: Error - Check permissions';
-            alert('Camera access denied. Please allow camera access to use AR features.');
-        });
-
-                 // Handle AR.js errors
-         document.addEventListener('arjs-error', function(error) {
-             console.error('AR.js error:', error);
-             document.getElementById('camera-status').textContent = 'AR: Error - Check HTTPS';
-         });
-
-        
-
-        // Add touch gesture support for mobile
-        let touchStartY = 0;
-        document.addEventListener('touchstart', function(event) {
-            touchStartY = event.touches[0].clientY;
-        });
-
-        document.addEventListener('touchend', function(event) {
-            const touchEndY = event.changedTouches[0].clientY;
-            const diff = touchStartY - touchEndY;
-            
-            // Swipe up to place model
-            if (diff > 50) {
-                // placeModel(); // This function is removed
-            }
-        });
-
-                 // Test placement function
-         function testPlacement() {
-             console.log('Test placement called');             
-              const scene = document.querySelector('a-scene');
-              const camera = document.querySelector('#mainCamera');
-              
-              console.log('Scene:', scene);
-              console.log('Camera:', camera);
-              console.log('Camera children:', camera.children);
-             
-             // Create a simple test cube
-             const testCube = document.createElement('a-box');
-             testCube.setAttribute('position', '0 0 -1'); // In front of camera
-             testCube.setAttribute('width', '0.3');
-             testCube.setAttribute('height', '0.3');
-             testCube.setAttribute('depth', '0.3');
-             testCube.setAttribute('color', '#ff0000');
-             
-             camera.appendChild(testCube);
-             console.log('Test cube added to camera');
-             
-             // Also try adding to scene directly
-             const sceneCube = document.createElement('a-box');
-             sceneCube.setAttribute('position', '0 0 -3');
-             sceneCube.setAttribute('width', '0.5');
-             sceneCube.setAttribute('height', '0.5');
-             sceneCube.setAttribute('depth', '0.5');
-             sceneCube.setAttribute('color', '#00ff00');
-             scene.appendChild(sceneCube);
-             console.log('Green cube added to scene');
-             
-             // Force a scene update
-             if (scene && scene.renderer) {
-                 scene.renderer.render(scene.object3D, scene.camera);
-             }
-             
-             // Check if canvas is visible
-             const canvas = document.querySelector('.a-canvas');
-             if (canvas) {
-                 console.log('Canvas dimensions:', canvas.offsetWidth, 'x', canvas.offsetHeight);
-                 console.log('Canvas style:', canvas.style.cssText);
-             }
-         }
-
-        // Force camera ready function
-        function forceCameraReady() {
-            cameraInitialized = true;
-            document.getElementById('camera-status').textContent = 'Camera: Ready';
-            console.log('Camera status forced to ready');
-            
-            // Hide the force camera button after it's been used
-            const forceButton = document.getElementById('force-camera');
-            if (forceButton) {
-                forceButton.style.display = 'none';
-            }
-            
-            // Hide camera status
-            hideCameraStatus();
-        }
-
-        // Auto-hide force camera button after 10 seconds
-        setTimeout(function() {
-            if (!cameraInitialized) {
-                hideForceCameraButton();
-            }
-        }, 10000);
-
-                 // Fix canvas size if needed
-         function fixCanvasSize() {
-             const canvas = document.querySelector('.a-canvas');
-             if (canvas) {
-                 const rect = canvas.getBoundingClientRect();
-                 if (rect.height === 0 || rect.height < 100) {
-                     console.log('Fixing canvas size...');
-                     canvas.style.height = window.innerHeight + 'px';
-                     canvas.style.width = window.innerWidth + 'px';
-                     canvas.style.position = 'fixed';
-                     canvas.style.top = '0';
-                     canvas.style.left = '0';
-                 }
-             }
-         }
-
-                 // Check canvas size periodically
-         setInterval(fixCanvasSize, 1000);
-         
-         // Force canvas fix on load
-         setTimeout(fixCanvasSize, 100);
-         setTimeout(fixCanvasSize, 500);
-         setTimeout(fixCanvasSize, 1000);
-
-         // Force canvas size after load
-        window.addEventListener('load', function() {
-            setTimeout(() => {
-                const canvas = document.querySelector('.a-canvas');
-                if (canvas) {
-                    canvas.style.width = '100vw';
-                    canvas.style.height = '100vh';
-                    canvas.style.display = 'block';
-                }
-            }, 1000);
-        });
-
-        
 
         // Check if running on HTTPS
         if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
-            alert('AR features require HTTPS. Please access this page via HTTPS or localhost.');
-            document.getElementById('camera-status').textContent = 'Camera: HTTPS Required';
+            alert('AR requires HTTPS. Please access via HTTPS or localhost.');
         }
-
-                 // Ensure AR.js video is visible and properly positioned
-         function fixARVideoCover() {
-             const video = document.querySelector('video');
-             if (video) {
-                 console.log('Fixing video element visibility');
-                 video.style.position = 'fixed';
-                 video.style.top = '0';
-                 video.style.left = '0';
-                 video.style.width = '100vw';
-                 video.style.height = '100vh';
-                 video.style.objectFit = 'cover';
-                 video.style.background = 'black';
-                 video.style.zIndex = '1';
-                 video.style.display = 'block';
-                 video.style.visibility = 'visible';
-                 
-                 // Force video to be visible
-                 if (video.style.display === 'none') {
-                     video.style.display = 'block';
-                 }
-                 
-                 console.log('Video element fixed:', video.style.cssText);
-             }
-         }
-                 // Try to fix video every 500ms until found, then stop
-         let videoCoverInterval = setInterval(() => {
-             const video = document.querySelector('video');
-             if (video) {
-                 fixARVideoCover();
-                 clearInterval(videoCoverInterval);
-             }
-         }, 500);
-         
-         // Also try to fix video immediately on load
-         document.addEventListener('DOMContentLoaded', function() {
-             setTimeout(() => {
-                 const video = document.querySelector('video');
-                 if (video) {
-                     fixARVideoCover();
-                 }
-             }, 100);
-         });
-        // Also fix on window resize
-        window.addEventListener('resize', fixARVideoCover);
     </script>
 </body>
 </html> 
