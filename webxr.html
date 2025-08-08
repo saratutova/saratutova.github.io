@@ -26,8 +26,8 @@
   </div>
 
   <a-scene
-    renderer="logarithmicDepthBuffer: true; antialias: true"
-    webxr="mode: ar; optionalFeatures: hit-test,anchors,dom-overlay; overlayElement: #overlay"
+    renderer="alpha: true; logarithmicDepthBuffer: true; antialias: true"
+    webxr="mode: ar; requiredFeatures: hit-test,dom-overlay; optionalFeatures: anchors; overlayElement: #overlay"
     xr-mode-ui="enabled: true"
     embedded>
 
@@ -55,12 +55,14 @@
       const startBtn = document.getElementById('startBtn');
       const placeBtn = document.getElementById('placeBtn');
       const resetBtn = document.getElementById('resetBtn');
+      const hintEl = document.getElementById('hint');
 
       let xrSession = null;
       let hitTestSource = null;
       let viewerSpace = null;
       let refSpace = null;
       let anchor = null; // optional XRAnchor if supported
+      let haveHitTest = false;
 
       function supportsWebXR() {
         return navigator.xr && navigator.xr.isSessionSupported;
@@ -88,10 +90,16 @@
           viewerSpace = await xrSession.requestReferenceSpace('viewer');
           const hitSource = await xrSession.requestHitTestSource({ space: viewerSpace });
           hitTestSource = hitSource;
+          haveHitTest = true;
           placeBtn.disabled = false;
           resetBtn.disabled = false;
+          hintEl.textContent = 'Move to find a surface, then tap Place.';
         } catch (e) {
           console.warn('Hit-test not available', e);
+          haveHitTest = false;
+          placeBtn.disabled = false; // Allow fallback placement
+          resetBtn.disabled = false;
+          hintEl.textContent = 'Hit-test unavailable. Tap Place to drop model 2m ahead.';
         }
 
         xrSession.addEventListener('end', onSessionEnd);
@@ -111,7 +119,8 @@
       // Update reticle each frame
       sceneEl.addEventListener('renderstart', () => {
         sceneEl.renderer.setAnimationLoop((timestamp, frame) => {
-          if (!frame || !hitTestSource || !refSpace) return;
+          sceneEl.frame = frame;
+          if (!frame || !hitTestSource || !refSpace) { reticleEl.setAttribute('visible', false); return; }
           const results = frame.getHitTestResults(hitTestSource);
           if (results && results.length > 0) {
             const pose = results[0].getPose(refSpace);
@@ -130,27 +139,21 @@
       });
 
       async function placeAtReticle() {
-        if (!reticleEl.getAttribute('visible')) return;
-        // Copy reticle transform to model and show
-        const r = reticleEl.object3D;
         const m = modelEl.object3D;
-        m.position.copy(r.position);
-        m.quaternion.copy(r.quaternion);
-        modelEl.setAttribute('visible', true);
-
-        // Optionally create an anchor (if supported)
-        if (xrSession && xrSession.requestAnchor) {
-          try {
-            // Create anchor at current reticle pose
-            const frame = sceneEl.frame;
-            if (frame && frame.createAnchor) {
-              const anchorPose = new XRRigidTransform(r.position, r.quaternion);
-              anchor = await frame.createAnchor(anchorPose, refSpace);
-            }
-          } catch (e) {
-            // Anchor not supported; ignore
-          }
+        if (haveHitTest && reticleEl.getAttribute('visible')) {
+          const r = reticleEl.object3D;
+          m.position.copy(r.position);
+          m.quaternion.copy(r.quaternion);
+        } else {
+          // Fallback: place 2m in front of camera
+          const cam = sceneEl.camera;
+          if (!cam) return;
+          const dir = new THREE.Vector3(0, 0, -1).applyQuaternion(cam.quaternion);
+          const pos = new THREE.Vector3().copy(cam.position).add(dir.multiplyScalar(2));
+          m.position.copy(pos);
+          m.quaternion.copy(cam.quaternion);
         }
+        modelEl.setAttribute('visible', true);
       }
 
       function resetPlacement() {
