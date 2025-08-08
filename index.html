@@ -10,33 +10,37 @@
       // Register early so it's available when the scene initializes
       if (window.AFRAME) {
         AFRAME.registerComponent('sticky-tracker', {
-          schema: { marker: { type: 'selector' }, target: { type: 'selector' } },
+          schema: { marker: { type: 'selector' }, target: { type: 'selector' }, lerp: { default: 0 } },
           init: function () {
-            this.placed = false;
             this.tempPos = new THREE.Vector3();
             this.tempQuat = new THREE.Quaternion();
             this.tempScale = new THREE.Vector3();
-            const self = this;
-            // Optional: allow external reset
-            this.el.addEventListener('reset-placement', function () {
-              self.placed = false;
-              if (self.data.target) self.data.target.setAttribute('visible', false);
-            });
+            const marker = this.data.marker;
+            const target = this.data.target;
+            if (marker) {
+              marker.addEventListener('markerFound', () => {
+                if (target) target.setAttribute('visible', true);
+              });
+              // On markerLost we intentionally keep last pose visible
+            }
           },
           tick: function () {
-            if (this.placed) return; // do not move/turn after first placement
             if (!this.data.marker || !this.data.target) return;
             const marker3D = this.data.marker.object3D;
-            if (!marker3D || !marker3D.visible) return; // wait for first detection
+            if (!marker3D || !marker3D.visible) return; // keep last pose when lost
             const target3D = this.data.target.object3D;
             marker3D.updateMatrixWorld();
             marker3D.matrixWorld.decompose(this.tempPos, this.tempQuat, this.tempScale);
-            // Copy pose exactly once
-            target3D.position.copy(this.tempPos);
-            target3D.quaternion.copy(this.tempQuat);
-            target3D.scale.copy(this.tempScale);
-            this.data.target.setAttribute('visible', true);
-            this.placed = true;
+            if (this.data.lerp > 0) {
+              const a = this.data.lerp;
+              target3D.position.lerp(this.tempPos, a);
+              target3D.quaternion.slerp(this.tempQuat, a);
+              target3D.scale.lerp(this.tempScale, a);
+            } else {
+              target3D.position.copy(this.tempPos);
+              target3D.quaternion.copy(this.tempQuat);
+              target3D.scale.copy(this.tempScale);
+            }
           }
         });
       }
