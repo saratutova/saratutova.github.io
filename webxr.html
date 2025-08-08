@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>WebXR AR - World Locked Model</title>
+  <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
+  <style>
+    body { margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; }
+    #overlay { position: fixed; top: 0; left: 0; right: 0; }
+    #ui { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); z-index: 10; }
+    #placeBtn, #startBtn, #resetBtn {
+      padding: 10px 16px; border-radius: 999px; border: none; background: #111; color: white; margin: 0 6px; font-weight: 600;
+    }
+    #hint { position: fixed; top: 16px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.6); color: #fff; padding: 8px 12px; border-radius: 8px; z-index: 10; }
+  </style>
+</head>
+<body>
+  <div id="overlay">
+    <div id="hint">Move your phone to find a surface. Tap Place to anchor the model.</div>
+    <div id="ui">
+      <button id="startBtn">Start AR</button>
+      <button id="placeBtn" disabled>Place</button>
+      <button id="resetBtn" disabled>Reset</button>
+    </div>
+  </div>
+
+  <a-scene
+    renderer="logarithmicDepthBuffer: true; antialias: true"
+    webxr="mode: ar; optionalFeatures: hit-test,anchors,dom-overlay; overlayElement: #overlay"
+    xr-mode-ui="enabled: true"
+    embedded>
+
+    <a-assets>
+      <a-asset-item id="model" src="./models/7579_3K.glb"></a-asset-item>
+    </a-assets>
+
+    <!-- Reticle -->
+    <a-entity id="reticle" visible="false"
+      geometry="primitive: ring; radiusInner: 0.07; radiusOuter: 0.08"
+      material="color: #00FFAA; shader: flat; opacity: 0.9"
+      rotation="-90 0 0"></a-entity>
+
+    <!-- Model to place (scale 1) -->
+    <a-entity id="worldModel" gltf-model="#model" scale="1 1 1" visible="false"></a-entity>
+
+    <a-entity camera></a-entity>
+  </a-scene>
+
+  <script>
+    (function() {
+      const sceneEl = document.querySelector('a-scene');
+      const reticleEl = document.getElementById('reticle');
+      const modelEl = document.getElementById('worldModel');
+      const startBtn = document.getElementById('startBtn');
+      const placeBtn = document.getElementById('placeBtn');
+      const resetBtn = document.getElementById('resetBtn');
+
+      let xrSession = null;
+      let hitTestSource = null;
+      let viewerSpace = null;
+      let refSpace = null;
+      let anchor = null; // optional XRAnchor if supported
+
+      function supportsWebXR() {
+        return navigator.xr && navigator.xr.isSessionSupported;
+      }
+
+      async function startAR() {
+        if (!supportsWebXR()) {
+          alert('WebXR AR not supported on this device/browser. Try Chrome/Android or Safari iOS 17+.');
+          return;
+        }
+        const supported = await navigator.xr.isSessionSupported('immersive-ar');
+        if (!supported) {
+          alert('Immersive AR session not supported.');
+          return;
+        }
+        sceneEl.enterVR(); // triggers AR when webxr mode is AR
+      }
+
+      async function onEnterVR() {
+        // Called when AR session starts
+        xrSession = sceneEl.renderer.xr.getSession();
+        refSpace = sceneEl.renderer.xr.getReferenceSpace();
+
+        try {
+          viewerSpace = await xrSession.requestReferenceSpace('viewer');
+          const hitSource = await xrSession.requestHitTestSource({ space: viewerSpace });
+          hitTestSource = hitSource;
+          placeBtn.disabled = false;
+          resetBtn.disabled = false;
+        } catch (e) {
+          console.warn('Hit-test not available', e);
+        }
+
+        xrSession.addEventListener('end', onSessionEnd);
+      }
+
+      function onSessionEnd() {
+        xrSession = null;
+        hitTestSource = null;
+        viewerSpace = null;
+        refSpace = null;
+        anchor = null;
+        reticleEl.setAttribute('visible', false);
+        placeBtn.disabled = true;
+        resetBtn.disabled = true;
+      }
+
+      // Update reticle each frame
+      sceneEl.addEventListener('renderstart', () => {
+        sceneEl.renderer.setAnimationLoop((timestamp, frame) => {
+          if (!frame || !hitTestSource || !refSpace) return;
+          const results = frame.getHitTestResults(hitTestSource);
+          if (results && results.length > 0) {
+            const pose = results[0].getPose(refSpace);
+            if (pose) {
+              const mat = new THREE.Matrix4();
+              mat.fromArray(pose.transform.matrix);
+              const o3d = reticleEl.object3D;
+              o3d.matrix.copy(mat);
+              o3d.matrix.decompose(o3d.position, o3d.quaternion, o3d.scale);
+              reticleEl.setAttribute('visible', true);
+            }
+          } else {
+            reticleEl.setAttribute('visible', false);
+          }
+        });
+      });
+
+      async function placeAtReticle() {
+        if (!reticleEl.getAttribute('visible')) return;
+        // Copy reticle transform to model and show
+        const r = reticleEl.object3D;
+        const m = modelEl.object3D;
+        m.position.copy(r.position);
+        m.quaternion.copy(r.quaternion);
+        modelEl.setAttribute('visible', true);
+
+        // Optionally create an anchor (if supported)
+        if (xrSession && xrSession.requestAnchor) {
+          try {
+            // Create anchor at current reticle pose
+            const frame = sceneEl.frame;
+            if (frame && frame.createAnchor) {
+              const anchorPose = new XRRigidTransform(r.position, r.quaternion);
+              anchor = await frame.createAnchor(anchorPose, refSpace);
+            }
+          } catch (e) {
+            // Anchor not supported; ignore
+          }
+        }
+      }
+
+      function resetPlacement() {
+        modelEl.setAttribute('visible', false);
+        anchor = null;
+      }
+
+      startBtn.addEventListener('click', startAR);
+      placeBtn.addEventListener('click', placeAtReticle);
+      resetBtn.addEventListener('click', resetPlacement);
+
+      sceneEl.addEventListener('enter-vr', onEnterVR);
+      sceneEl.addEventListener('exit-vr', onSessionEnd);
+    })();
+  </script>
+</body>
+</html>
+
+
