@@ -6,6 +6,37 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
     <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
     <script src="https://cdn.jsdelivr.net/gh/AR-js-org/AR.js@3.4.4/aframe/build/aframe-ar.min.js"></script>
+    <script>
+      // Register early so it's available when the scene initializes
+      if (window.AFRAME) {
+        AFRAME.registerComponent('sticky-tracker', {
+          schema: { marker: { type: 'selector' }, target: { type: 'selector' }, lerp: { default: 0.2 } },
+          init: function () {
+            this.tempPos = new THREE.Vector3();
+            this.tempQuat = new THREE.Quaternion();
+            this.tempScale = new THREE.Vector3();
+            if (this.data.marker) {
+              this.data.marker.addEventListener('markerFound', () => {
+                if (this.data.target) this.data.target.setAttribute('visible', true);
+              });
+              // On markerLost we intentionally keep last pose visible
+            }
+          },
+          tick: function () {
+            if (!this.data.marker || !this.data.target) return;
+            const marker3D = this.data.marker.object3D;
+            if (!marker3D || !marker3D.visible) return; // keep last pose
+            const target3D = this.data.target.object3D;
+            marker3D.updateMatrixWorld();
+            marker3D.matrixWorld.decompose(this.tempPos, this.tempQuat, this.tempScale);
+            const a = this.data.lerp;
+            target3D.position.lerp(this.tempPos, a);
+            target3D.quaternion.slerp(this.tempQuat, a);
+            target3D.scale.lerp(this.tempScale, a);
+          }
+        });
+      }
+    </script>
          <style>
          body {
              margin: 0;
@@ -124,20 +155,19 @@
             <a-asset-item id="model" src="./models/7579_3K.glb"></a-asset-item>
         </a-assets>
 
-        <a-marker preset="hiro">
-            <a-entity 
-                gltf-model="#model" 
-                scale="0.1 0.1 0.1" 
-                position="0 0 0"
-                rotation="0 0 0">
-            </a-entity>
-            
-            <!-- Enhanced lighting for the model -->
-            <a-light type="ambient" color="#ffffff" intensity="1.0"></a-light>
-            <a-light type="directional" color="#ffffff" intensity="1.0" position="0 1 0"></a-light>
-            <a-light type="directional" color="#ffffff" intensity="0.8" position="1 1 1"></a-light>
-            <a-light type="directional" color="#ffffff" intensity="0.6" position="-1 1 -1"></a-light>
-        </a-marker>
+        <a-marker id="marker" preset="hiro" emitevents="true" smooth="true" smoothCount="5" smoothTolerance="0.01" smoothThreshold="5"></a-marker>
+
+        <!-- Enhanced lighting for the model (kept outside the marker) -->
+        <a-light type="ambient" color="#ffffff" intensity="1.0"></a-light>
+        <a-light type="directional" color="#ffffff" intensity="1.0" position="0 1 0"></a-light>
+        <a-light type="directional" color="#ffffff" intensity="0.8" position="1 1 1"></a-light>
+        <a-light type="directional" color="#ffffff" intensity="0.6" position="-1 1 -1"></a-light>
+
+        <!-- Model is outside the marker; start hidden and scale to 1 for testing -->
+        <a-entity id="worldModel" gltf-model="#model" visible="false" scale="1 1 1" position="0 0 0" rotation="0 0 0"></a-entity>
+
+        <!-- Drive the world model from the marker when visible; keep last pose when lost -->
+        <a-entity sticky-tracker="marker: #marker; target: #worldModel; lerp: 0.2"></a-entity>
 
         <a-entity camera></a-entity>
     </a-scene>
