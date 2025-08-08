@@ -70,24 +70,41 @@
         return navigator.xr && navigator.xr.isSessionSupported;
       }
 
+      let starting = false;
       async function startAR() {
+        if (starting) return; starting = true;
         if (!supportsWebXR()) {
           alert('WebXR AR not supported on this device/browser. Try Chrome/Android or Safari iOS 17+.');
-          return;
+          starting = false; return;
         }
         const supported = await navigator.xr.isSessionSupported('immersive-ar');
         if (!supported) {
           alert('Immersive AR session not supported.');
-          return;
+          starting = false; return;
         }
-        console.log('[WebXR] Requesting AR session...');
-        sceneEl.enterVR(); // triggers AR when webxr mode is AR
-        // Fallback if session does not start
+        console.log('[WebXR] Requesting AR session via navigator.xr.requestSession...');
+        try {
+          const overlay = document.getElementById('overlay');
+          const sessionInit = {
+            requiredFeatures: ['hit-test'],
+            optionalFeatures: ['dom-overlay', 'anchors'],
+            domOverlay: { root: overlay }
+          };
+          const session = await navigator.xr.requestSession('immersive-ar', sessionInit);
+          sceneEl.renderer.xr.setSession(session);
+          hintEl.textContent = 'AR session started. Move to find a surface.';
+        } catch (e) {
+          console.error('[WebXR] requestSession failed', e);
+          hintEl.textContent = 'Could not start AR session. Ensure camera permission is allowed. Use Back to return to marker mode.';
+          starting = false; return;
+        }
+        // If A-Frame does not dispatch enter-vr automatically, do minimal init
         setTimeout(() => {
           if (!sceneEl.renderer || !sceneEl.renderer.xr || !sceneEl.renderer.xr.getSession()) {
-            hintEl.textContent = 'Could not start AR. Try Chrome on Android or Safari iOS 17+. Use Back to return to marker mode.';
+            hintEl.textContent = 'AR session not active. Try again or use Back to return to marker mode.';
+            starting = false;
           }
-        }, 2000);
+        }, 1500);
       }
 
       async function onEnterVR() {
