@@ -27,7 +27,7 @@
 
   <a-scene
     renderer="alpha: true; logarithmicDepthBuffer: true; antialias: true"
-    webxr="mode: ar; requiredFeatures: hit-test,dom-overlay; optionalFeatures: anchors; overlayElement: #overlay"
+    webxr="mode: ar; optionalFeatures: hit-test,dom-overlay,anchors; overlayElement: #overlay"
     xr-mode-ui="enabled: true"
     embedded>
 
@@ -78,7 +78,14 @@
           alert('Immersive AR session not supported.');
           return;
         }
+        console.log('[WebXR] Requesting AR session...');
         sceneEl.enterVR(); // triggers AR when webxr mode is AR
+        // Fallback if session does not start
+        setTimeout(() => {
+          if (!sceneEl.renderer || !sceneEl.renderer.xr || !sceneEl.renderer.xr.getSession()) {
+            hintEl.textContent = 'Could not start AR. Try Chrome on Android or Safari iOS 17+. You can go back to marker mode.';
+          }
+        }, 2000);
       }
 
       async function onEnterVR() {
@@ -114,6 +121,7 @@
         reticleEl.setAttribute('visible', false);
         placeBtn.disabled = true;
         resetBtn.disabled = true;
+        hintEl.textContent = 'AR session ended. Tap Start AR to try again or go back to marker mode.';
       }
 
       // Update reticle each frame

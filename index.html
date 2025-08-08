@@ -214,10 +214,14 @@
             if (switchTimer) clearTimeout(switchTimer);
             notice.style.display = 'none';
           }
-          if (navigator.xr && navigator.xr.isSessionSupported) {
-            navigator.xr.isSessionSupported('immersive-ar').then((supported) => {
-              if (supported) offerSwitch();
-            }).catch(() => {});
+          // Delay offer so user sees marker UI first; and only auto-switch on mobile
+          const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+          if (isMobile && navigator.xr && navigator.xr.isSessionSupported) {
+            setTimeout(() => {
+              navigator.xr.isSessionSupported('immersive-ar').then((supported) => {
+                if (supported) offerSwitch();
+              }).catch(() => {});
+            }, 1500);
           }
           if (stayBtn) stayBtn.addEventListener('click', cancelSwitch);
         })();
