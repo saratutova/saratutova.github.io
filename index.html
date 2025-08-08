@@ -156,6 +156,10 @@
      </style>
 </head>
 <body>
+    <div id="xr-notice" style="display:none; position: fixed; top: 12px; right: 12px; z-index: 1100; background: rgba(0,0,0,0.8); color: #fff; padding: 10px 12px; border-radius: 8px; font-size: 14px;">
+      World-tracking AR available. Switching in 1s...
+      <button id="xr-stay" style="margin-left:8px; background:#444; color:#fff; border:none; border-radius:6px; padding:6px 10px; cursor:pointer;">Stay</button>
+    </div>
     <div id="status">Camera: Initializing...</div>
     <div id="instructions">
         <h3>Krosno AR Experience</h3>
@@ -195,6 +199,29 @@
     </a-scene>
 
     <script>
+        // Seamless mode: if WebXR AR is supported, offer to switch to world tracking (webxr.html)
+        (function(){
+          const notice = document.getElementById('xr-notice');
+          const stayBtn = document.getElementById('xr-stay');
+          let switchTimer = null;
+          function offerSwitch() {
+            notice.style.display = 'block';
+            switchTimer = setTimeout(() => {
+              window.location.href = 'webxr.html';
+            }, 1000);
+          }
+          function cancelSwitch() {
+            if (switchTimer) clearTimeout(switchTimer);
+            notice.style.display = 'none';
+          }
+          if (navigator.xr && navigator.xr.isSessionSupported) {
+            navigator.xr.isSessionSupported('immersive-ar').then((supported) => {
+              if (supported) offerSwitch();
+            }).catch(() => {});
+          }
+          if (stayBtn) stayBtn.addEventListener('click', cancelSwitch);
+        })();
+
         // Basic AR.js setup
         document.addEventListener('DOMContentLoaded', function() {
             console.log('DOM loaded');
