@@ -10,18 +10,32 @@
       // Register early so it's available when the scene initializes
       if (window.AFRAME) {
         AFRAME.registerComponent('sticky-tracker', {
-          schema: { marker: { type: 'selector' }, target: { type: 'selector' }, lerp: { default: 0 } },
+          schema: {
+            marker: { type: 'selector' },
+            target: { type: 'selector' },
+            lerp: { default: 0 },
+            hideOnLost: { default: true },
+            hideDelayMs: { default: 500 }
+          },
           init: function () {
             this.tempPos = new THREE.Vector3();
             this.tempQuat = new THREE.Quaternion();
             this.tempScale = new THREE.Vector3();
             const marker = this.data.marker;
             const target = this.data.target;
+            this._hideTimer = null;
             if (marker) {
               marker.addEventListener('markerFound', () => {
+                if (this._hideTimer) { clearTimeout(this._hideTimer); this._hideTimer = null; }
                 if (target) target.setAttribute('visible', true);
               });
-              // On markerLost we intentionally keep last pose visible
+              marker.addEventListener('markerLost', () => {
+                if (!this.data.hideOnLost || !target) return;
+                if (this._hideTimer) clearTimeout(this._hideTimer);
+                this._hideTimer = setTimeout(() => {
+                  target.setAttribute('visible', false);
+                }, this.data.hideDelayMs);
+              });
             }
           },
           tick: function () {
@@ -174,8 +188,8 @@
         <!-- Model is outside the marker; start hidden and scale to 1 for testing -->
         <a-entity id="worldModel" gltf-model="#model" visible="false" scale="1 1 1" position="0 0 0" rotation="0 0 0"></a-entity>
 
-        <!-- Drive the world model from the marker when visible; keep last pose when lost -->
-        <a-entity sticky-tracker="marker: #marker; target: #worldModel; lerp: 0.2"></a-entity>
+        <!-- Drive the world model from the marker when visible; hide shortly after loss to avoid screen-stick -->
+        <a-entity sticky-tracker="marker: #marker; target: #worldModel; lerp: 0.2; hideOnLost: true; hideDelayMs: 600"></a-entity>
 
         <a-entity camera></a-entity>
     </a-scene>
