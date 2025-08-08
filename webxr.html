@@ -17,8 +17,9 @@
 </head>
 <body>
   <div id="overlay">
-    <div id="hint">Move your phone to find a surface. Tap Place to anchor the model.</div>
+    <div id="hint">Tap Start AR. Move your phone to find a surface. Tap Place to anchor the model.</div>
     <div id="ui">
+      <button id="backBtn" onclick="history.back()">Back</button>
       <button id="startBtn">Start AR</button>
       <button id="placeBtn" disabled>Place</button>
       <button id="resetBtn" disabled>Reset</button>
@@ -56,6 +57,7 @@
       const placeBtn = document.getElementById('placeBtn');
       const resetBtn = document.getElementById('resetBtn');
       const hintEl = document.getElementById('hint');
+      const backBtn = document.getElementById('backBtn');
 
       let xrSession = null;
       let hitTestSource = null;
@@ -83,7 +85,7 @@
         // Fallback if session does not start
         setTimeout(() => {
           if (!sceneEl.renderer || !sceneEl.renderer.xr || !sceneEl.renderer.xr.getSession()) {
-            hintEl.textContent = 'Could not start AR. Try Chrome on Android or Safari iOS 17+. You can go back to marker mode.';
+            hintEl.textContent = 'Could not start AR. Try Chrome on Android or Safari iOS 17+. Use Back to return to marker mode.';
           }
         }, 2000);
       }
@@ -175,6 +177,11 @@
 
       sceneEl.addEventListener('enter-vr', onEnterVR);
       sceneEl.addEventListener('exit-vr', onSessionEnd);
+
+      // Ensure overlay receives clicks while in AR (dom-overlay feature)
+      document.addEventListener('click', (e) => {
+        // no-op, just ensures DOM overlay is interactive
+      });
     })();
   </script>
 </body>
