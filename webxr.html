@@ -36,7 +36,7 @@
     embedded>
 
     <a-assets>
-      <a-asset-item id="model" src="./models/7579_3K_V1.glb"></a-asset-item>
+      <a-asset-item id="model" src="./models/7579_3K_V2.glb"></a-asset-item>
     </a-assets>
 
     <!-- Reticle -->
@@ -53,6 +53,8 @@
 
   <script>
     (function() {
+      const url = new URL(window.location.href);
+      const safeMode = url.searchParams.get('safemode') === '1' || url.searchParams.get('safe') === '1';
       const sceneEl = document.querySelector('a-scene');
       const reticleEl = document.getElementById('reticle');
       const modelEl = document.getElementById('worldModel');
@@ -88,11 +90,19 @@
         console.log('[WebXR] Requesting AR session via navigator.xr.requestSession...');
         try {
           const overlay = document.getElementById('overlay');
+          const required = ['hit-test'];
+          // Request local-floor if available
+          required.push('local-floor');
+          const optional = ['anchors'];
+          if (!safeMode) {
+            optional.push('dom-overlay');
+          }
           const sessionInit = {
-            requiredFeatures: ['hit-test'],
-            optionalFeatures: ['dom-overlay', 'anchors'],
-            domOverlay: { root: overlay }
+            requiredFeatures: required,
+            optionalFeatures: optional,
+            domOverlay: safeMode ? undefined : { root: overlay }
           };
+          console.log('[WebXR] sessionInit', sessionInit);
           const session = await navigator.xr.requestSession('immersive-ar', sessionInit);
           sceneEl.renderer.xr.setSession(session);
           // Ensure transparent background in AR
