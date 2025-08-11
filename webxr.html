@@ -7,7 +7,7 @@
   <script>
     // Ensure first log is the build version and capture all logs early
     (function(){
-      window.BUILD_NUMBER = 7; // INCREMENT BEFORE COMMIT
+      window.BUILD_NUMBER = 8; // INCREMENT BEFORE COMMIT
       if (!window.__logBuffer) window.__logBuffer = [];
       const origLog = console.log.bind(console);
       const origWarn = console.warn.bind(console);
@@ -45,6 +45,9 @@
     #placeBtn, #startBtn, #resetBtn {
       padding: 10px 16px; border-radius: 999px; border: none; background: #111; color: white; margin: 0 6px; font-weight: 600;
     }
+    /* Place is green when a valid surface is targeted (reticle visible) */
+    #placeBtn.ok { background: #16a34a; }
+    #placeBtn.ok:active { background: #15803d; }
     #hint { position: fixed; top: 16px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.6); color: #fff; padding: 8px 12px; border-radius: 8px; z-index: 10; }
     #buildBadge { position: fixed; top: 16px; right: 16px; background: rgba(17,17,17,0.8); color: #fff; padding: 6px 10px; border-radius: 999px; font-size: 12px; z-index: 10; }
   </style>
@@ -79,8 +82,8 @@
       material="color: #00FFAA; shader: flat; opacity: 0.9"
       rotation="-90 0 0"></a-entity>
 
-    <!-- Model to place (scale 1) -->
-    <a-entity id="worldModel" gltf-model="#model" scale="1 1 1" visible="false"></a-entity>
+    <!-- Model to place (scale 1). glTF is attached via JS unless forceCube=1 -->
+    <a-entity id="worldModel" scale="1 1 1" visible="false"></a-entity>
 
     <!-- Basic lights so GLTF/placeholder are visible -->
     <a-entity light="type: ambient; intensity: 1"></a-entity>
@@ -118,7 +121,7 @@
           } catch(err) { console.warn('Force basic failed', err); }
         }
       });
-      // If forcing a cube, replace the model immediately
+      // Attach model or placeholder depending on URL params
       if (forceCube) {
         try {
           modelEl.removeAttribute('gltf-model');
@@ -126,6 +129,8 @@
           modelEl.setAttribute('material', 'color: #4ecdc4; metalness: 0.1; roughness: 0.8; shader: flat');
           console.log('[Model] Forcing cube placeholder via URL param forceCube=1');
         } catch(_) {}
+      } else {
+        modelEl.setAttribute('gltf-model', '#model');
       }
       const startBtn = document.getElementById('startBtn');
       const copyLogsBtn = document.getElementById('copyLogsBtn');
@@ -291,9 +296,11 @@
               o3d.matrix.copy(mat);
               o3d.matrix.decompose(o3d.position, o3d.quaternion, o3d.scale);
               reticleEl.setAttribute('visible', true);
+              if (placeBtn) placeBtn.classList.add('ok');
             }
           } else {
             reticleEl.setAttribute('visible', false);
+            if (placeBtn) placeBtn.classList.remove('ok');
           }
         });
       });
@@ -336,26 +343,29 @@
           modelEl.setAttribute('position', `${m.position.x} ${m.position.y} ${m.position.z}`);
           modelEl.setAttribute('rotation', `${rot.x} ${rot.y} ${rot.z}`);
         } catch (_) {}
-        // Auto-rescale model to a reasonable size
+        // Auto-rescale model to a reasonable size (skip if forceCube; cube already sized)
         try {
-          const bbox = new THREE.Box3().setFromObject(m);
-          const size = new THREE.Vector3(); bbox.getSize(size);
-          const maxDim = Math.max(size.x, size.y, size.z);
-          if (Number.isFinite(maxDim) && maxDim > 0) {
-            const target = 0.6; // meters
-            let factor = target / maxDim;
-            factor = Math.min(Math.max(factor, 0.05), 5);
-            const curScale = modelEl.getAttribute('scale') || {x:1,y:1,z:1};
-            const newScale = `${curScale.x * factor} ${curScale.y * factor} ${curScale.z * factor}`;
-            modelEl.setAttribute('scale', newScale);
-            console.log('[Place] Rescaled model factor=', factor, 'newScale=', newScale);
+          if (!forceCube) {
+            const bbox = new THREE.Box3().setFromObject(m);
+            const size = new THREE.Vector3(); bbox.getSize(size);
+            const maxDim = Math.max(size.x, size.y, size.z);
+            if (Number.isFinite(maxDim) && maxDim > 0) {
+              const target = 0.6; // meters
+              let factor = target / maxDim;
+              factor = Math.min(Math.max(factor, 0.05), 5);
+              const curScale = modelEl.getAttribute('scale') || {x:1,y:1,z:1};
+              const newScale = `${curScale.x * factor} ${curScale.y * factor} ${curScale.z * factor}`;
+              modelEl.setAttribute('scale', newScale);
+              console.log('[Place] Rescaled model factor=', factor, 'newScale=', newScale);
+            }
           }
         } catch (e) { console.warn('Rescale failed', e); }
         // Add/update bright debug helpers to make placement undeniably visible
         try {
           if (!axesHelper) {
             axesHelper = new THREE.AxesHelper(0.4);
-            axesHelper.material.depthTest = false;
+            const mh = axesHelper.material; // material is array-like on AxesHelper; guard below
+            if (mh && mh.depthTest !== undefined) mh.depthTest = false;
             axesHelper.renderOrder = 9999;
             m.add(axesHelper);
           }
@@ -367,7 +377,9 @@
           const tempBox = new THREE.Box3().setFromObject(m);
           bboxHelper = new THREE.Box3Helper(tempBox, new THREE.Color(0xff00ff));
           bboxHelper.renderOrder = 9999;
-          bboxHelper.material.depthTest = false;
+          if (bboxHelper.material && bboxHelper.material.depthTest !== undefined) {
+            bboxHelper.material.depthTest = false;
+          }
           // Attach helper to scene root so it's not affected by model's scale non-uniformity
           sceneEl.object3D.add(bboxHelper);
         } catch (e) { console.warn('Helpers failed', e); }
