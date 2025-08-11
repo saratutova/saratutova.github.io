@@ -51,6 +51,10 @@
     <!-- Model to place (scale 1) -->
     <a-entity id="worldModel" gltf-model="#model" scale="1 1 1" visible="false"></a-entity>
 
+    <!-- Basic lights so GLTF/placeholder are visible -->
+    <a-entity light="type: ambient; intensity: 1"></a-entity>
+    <a-entity light="type: directional; intensity: 0.8" position="0 1 0"></a-entity>
+
     <a-entity camera></a-entity>
   </a-scene>
 
@@ -61,6 +65,10 @@
       const sceneEl = document.querySelector('a-scene');
       const reticleEl = document.getElementById('reticle');
       const modelEl = document.getElementById('worldModel');
+      // Log when the GLB finishes loading
+      modelEl.addEventListener('model-loaded', (e) => {
+        console.log('[Model] GLB loaded', e?.detail);
+      });
       const startBtn = document.getElementById('startBtn');
       const copyLogsBtn = document.getElementById('copyLogsBtn');
       const placeBtn = document.getElementById('placeBtn');
@@ -313,11 +321,29 @@
         }
       }
 
-      const originalPlace = placeAtReticle;
+      const __originalPlace = placeAtReticle;
       placeAtReticle = async function() {
         ensurePlaceholderIfEmpty();
-        return originalPlace.apply(this, arguments);
+        // Show a brief debug marker where we intend to place
+        try { const pos = modelEl.object3D.position; showDebugMarkerAt(pos); } catch(_){}
+        return __originalPlace.apply(this, arguments);
       };
+
+      function showDebugMarkerAt(positionVec3) {
+        try {
+          let marker = document.getElementById('debugMarker');
+          if (!marker) {
+            marker = document.createElement('a-entity');
+            marker.setAttribute('id', 'debugMarker');
+            marker.setAttribute('geometry', 'primitive: sphere; radius: 0.05');
+            marker.setAttribute('material', 'color: #ffcc00; shader: flat; opacity: 0.9');
+            document.querySelector('a-scene').appendChild(marker);
+          }
+          marker.setAttribute('position', `${positionVec3.x} ${positionVec3.y} ${positionVec3.z}`);
+          marker.setAttribute('visible', true);
+          setTimeout(() => { const m = document.getElementById('debugMarker'); if (m) m.setAttribute('visible', false); }, 1500);
+        } catch (_) {}
+      }
     })();
   </script>
 
