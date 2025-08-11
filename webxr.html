@@ -7,6 +7,9 @@
   <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
   <style>
     body { margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; }
+    /* Ensure AR canvas is transparent so the camera feed shows */
+    html, body, a-scene { background: transparent !important; }
+    canvas, .a-canvas { background-color: transparent !important; }
     #overlay { position: fixed; top: 0; left: 0; right: 0; }
     #ui { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); z-index: 10; }
     #placeBtn, #startBtn, #resetBtn {
@@ -92,7 +95,13 @@
           };
           const session = await navigator.xr.requestSession('immersive-ar', sessionInit);
           sceneEl.renderer.xr.setSession(session);
+          // Ensure transparent background in AR
+          if (sceneEl.renderer && sceneEl.renderer.setClearColor) {
+            sceneEl.renderer.setClearColor(0x000000, 0);
+          }
           hintEl.textContent = 'AR session started. Move to find a surface.';
+          // Proactively run AR init in case framework event doesn't fire
+          try { await onEnterVR(); } catch (err) { console.warn('AR init fallback failed', err); }
         } catch (e) {
           console.error('[WebXR] requestSession failed', e);
           hintEl.textContent = 'Could not start AR session. Ensure camera permission is allowed. Use Back to return to marker mode.';
@@ -145,6 +154,10 @@
 
       // Update reticle each frame
       sceneEl.addEventListener('renderstart', () => {
+        // Keep renderer alpha 0 during AR so the camera feed is visible
+        if (sceneEl.renderer && sceneEl.renderer.setClearColor) {
+          sceneEl.renderer.setClearColor(0x000000, 0);
+        }
         sceneEl.renderer.setAnimationLoop((timestamp, frame) => {
           sceneEl.frame = frame;
           if (!frame || !hitTestSource || !refSpace) { reticleEl.setAttribute('visible', false); return; }
