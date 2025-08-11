@@ -4,6 +4,32 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>WebXR AR - World Locked Model</title>
+  <script>
+    // Ensure first log is the build version and capture all logs early
+    (function(){
+      window.BUILD_NUMBER = 3; // INCREMENT BEFORE COMMIT
+      if (!window.__logBuffer) window.__logBuffer = [];
+      const origLog = console.log.bind(console);
+      const origWarn = console.warn.bind(console);
+      const origErr = console.error.bind(console);
+      function fmt(arg){
+        try { if (arg instanceof Error) return arg.stack || String(arg); if (typeof arg === 'object') return JSON.stringify(arg); return String(arg); }
+        catch(_) { return String(arg); }
+      }
+      function push(level, args){
+        const ts = new Date().toISOString();
+        const msg = Array.from(args).map(fmt).join(' ');
+        window.__logBuffer.push(`[${ts}] [${level}] ${msg}`);
+        if (window.__logBuffer.length > 2000) window.__logBuffer.shift();
+      }
+      console.log = function(){ push('LOG', arguments); origLog.apply(console, arguments); };
+      console.warn = function(){ push('WARN', arguments); origWarn.apply(console, arguments); };
+      console.error = function(){ push('ERROR', arguments); origErr.apply(console, arguments); };
+      window.addEventListener('error', (e)=>{ push('ONERROR', [e.message, e.filename+':'+e.lineno]); });
+      window.addEventListener('unhandledrejection', (e)=>{ push('REJECTION', [e.reason]); });
+      console.log('[Build] webxr.html build', window.BUILD_NUMBER);
+    })();
+  </script>
   <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
   <style>
     body { margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; }
@@ -63,7 +89,7 @@
   <script>
     (function() {
       // Bump this number before each commit to verify latest deployed build
-      const BUILD_NUMBER = 2; // INCREMENT BEFORE COMMIT
+      const BUILD_NUMBER = 3; // INCREMENT BEFORE COMMIT
       console.log(`[Build] webxr.html build`, BUILD_NUMBER);
       const badgeEl = document.getElementById('buildBadge');
       if (badgeEl) badgeEl.textContent = `build ${BUILD_NUMBER}`;
@@ -324,11 +350,7 @@
         copyLogsBtn.addEventListener('click', async () => {
           console.log('[UI] Copy logs');
           const text = (window.__logBuffer || []).join('\n');
-          try {
-            await navigator.clipboard.writeText(text);
-            hintEl.textContent = 'Logs copied to clipboard.';
-          } catch (e) {
-            // Download fallback
+          const doDownload = () => {
             try {
               const blob = new Blob([text], { type: 'text/plain' });
               const url = URL.createObjectURL(blob);
@@ -338,6 +360,12 @@
               setTimeout(() => URL.revokeObjectURL(url), 1000);
               hintEl.textContent = 'Logs download started.';
             } catch (_) { hintEl.textContent = 'Copy/download failed.'; }
+          };
+          try {
+            await navigator.clipboard.writeText(text);
+            hintEl.textContent = 'Logs copied to clipboard.';
+          } catch (e) {
+            doDownload();
           }
         });
       }
