@@ -23,7 +23,7 @@
 <body>
   <div id="overlay">
     <div id="hint">Tap Start AR. Move your phone to find a surface. Tap Place to anchor the model.</div>
-    <div id="buildBadge">build 1</div>
+    <div id="buildBadge">build 2</div>
     <div id="ui">
       <button id="backBtn" onclick="history.back()">Back</button>
       <button id="copyLogsBtn" title="Copy all console logs">Copy logs</button>
@@ -69,12 +69,24 @@
       if (badgeEl) badgeEl.textContent = `build ${BUILD_NUMBER}`;
       const url = new URL(window.location.href);
       const safeMode = url.searchParams.get('safemode') === '1' || url.searchParams.get('safe') === '1';
+      const forceBasic = url.searchParams.get('forceBasic') === '1';
       const sceneEl = document.querySelector('a-scene');
       const reticleEl = document.getElementById('reticle');
       const modelEl = document.getElementById('worldModel');
-      // Log when the GLB finishes loading
+      // Log when the GLB finishes loading and optionally force basic materials for visibility
       modelEl.addEventListener('model-loaded', (e) => {
         console.log('[Model] GLB loaded', e?.detail);
+        if (forceBasic && modelEl.object3D) {
+          try {
+            modelEl.object3D.traverse((child) => {
+              if (child.material) {
+                const map = child.material.map || null;
+                child.material = new THREE.MeshBasicMaterial({ color: 0xffffff, map });
+              }
+            });
+            console.log('[Model] Applied basic materials for visibility');
+          } catch(err) { console.warn('Force basic failed', err); }
+        }
       });
       const startBtn = document.getElementById('startBtn');
       const copyLogsBtn = document.getElementById('copyLogsBtn');
@@ -100,6 +112,11 @@
 
       let starting = false;
       async function startAR() {
+        // Toggle behavior: if a session exists, end it first
+        if (xrSession) {
+          try { await xrSession.end(); } catch (_) {}
+          return;
+        }
         if (starting) return; starting = true;
         if (!supportsWebXR()) {
           alert('WebXR AR not supported on this device/browser. Try Chrome/Android or Safari iOS 17+.');
@@ -128,6 +145,7 @@
           console.log('[WebXR] sessionInit', sessionInit);
           const session = await navigator.xr.requestSession('immersive-ar', sessionInit);
           sceneEl.renderer.xr.setSession(session);
+          if (startBtn) startBtn.textContent = 'Exit AR';
           // Ensure transparent background in AR
           if (sceneEl.renderer && sceneEl.renderer.setClearColor) {
             sceneEl.renderer.setClearColor(0x000000, 0);
@@ -197,6 +215,7 @@
         placeBtn.disabled = true;
         resetBtn.disabled = true;
         hintEl.textContent = 'AR session ended. Tap Start AR to try again or go back to marker mode.';
+        if (startBtn) startBtn.textContent = 'Start AR';
       }
 
       // Update reticle each frame
@@ -264,6 +283,17 @@
           }
         }
         modelEl.setAttribute('visible', true);
+        // Sync A-Frame attributes so transforms persist
+        try {
+          const euler = new THREE.Euler().setFromQuaternion(m.quaternion, 'YXZ');
+          const rot = {
+            x: THREE.MathUtils.radToDeg(euler.x),
+            y: THREE.MathUtils.radToDeg(euler.y),
+            z: THREE.MathUtils.radToDeg(euler.z)
+          };
+          modelEl.setAttribute('position', `${m.position.x} ${m.position.y} ${m.position.z}`);
+          modelEl.setAttribute('rotation', `${rot.x} ${rot.y} ${rot.z}`);
+        } catch (_) {}
         // Auto-rescale model to a reasonable size
         try {
           const bbox = new THREE.Box3().setFromObject(m);
@@ -293,10 +323,22 @@
       if (copyLogsBtn) {
         copyLogsBtn.addEventListener('click', async () => {
           console.log('[UI] Copy logs');
+          const text = (window.__logBuffer || []).join('\n');
           try {
-            await navigator.clipboard.writeText((window.__logBuffer || []).join('\n'));
+            await navigator.clipboard.writeText(text);
             hintEl.textContent = 'Logs copied to clipboard.';
-          } catch (e) { hintEl.textContent = 'Copy failed.'; }
+          } catch (e) {
+            // Download fallback
+            try {
+              const blob = new Blob([text], { type: 'text/plain' });
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement('a');
+              a.href = url; a.download = 'webxr-logs.txt';
+              document.body.appendChild(a); a.click(); document.body.removeChild(a);
+              setTimeout(() => URL.revokeObjectURL(url), 1000);
+              hintEl.textContent = 'Logs download started.';
+            } catch (_) { hintEl.textContent = 'Copy/download failed.'; }
+          }
         });
       }
       placeBtn.addEventListener('click', () => { console.log('[UI] Place clicked'); placeAtReticle(); });
