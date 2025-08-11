@@ -37,7 +37,8 @@
     embedded>
 
     <a-assets>
-      <a-asset-item id="model" src="./models/7579_3K_V2.glb"></a-asset-item>
+      <!-- Use existing asset to avoid load failure; switch back to V2 once the file exists -->
+      <a-asset-item id="model" src="./models/7579_3K_V1.glb"></a-asset-item>
     </a-assets>
 
     <!-- Reticle -->
@@ -202,21 +203,50 @@
       });
 
       async function placeAtReticle() {
+        console.log('[Place] begin. reticleVisible=', reticleEl.getAttribute('visible'), 'haveHitTest=', haveHitTest);
         const m = modelEl.object3D;
         if (haveHitTest && reticleEl.getAttribute('visible')) {
           const r = reticleEl.object3D;
           m.position.copy(r.position);
           m.quaternion.copy(r.quaternion);
+          console.log('[Place] Using reticle pose', m.position);
         } else {
-          // Fallback: place 2m in front of camera
-          const cam = sceneEl.camera;
-          if (!cam) return;
-          const dir = new THREE.Vector3(0, 0, -1).applyQuaternion(cam.quaternion);
-          const pos = new THREE.Vector3().copy(cam.position).add(dir.multiplyScalar(2));
-          m.position.copy(pos);
-          m.quaternion.copy(cam.quaternion);
+          // Fallback: place ~2m in front of viewer using XR viewer pose if available
+          const frame = sceneEl.frame;
+          if (frame && refSpace) {
+            const viewerPose = frame.getViewerPose(refSpace);
+            if (viewerPose && viewerPose.views && viewerPose.views[0]) {
+              const t = viewerPose.transform;
+              const orient = new THREE.Quaternion(t.orientation.x, t.orientation.y, t.orientation.z, t.orientation.w);
+              const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(orient).normalize();
+              const base = new THREE.Vector3(t.position.x, t.position.y, t.position.z);
+              const pos = base.clone().add(forward.multiplyScalar(2));
+              m.position.copy(pos);
+              m.quaternion.copy(orient);
+              console.log('[Place] Using viewer pose fallback', m.position);
+            } else {
+              // Final fallback: use scene camera
+              const cam = sceneEl.camera;
+              if (!cam) { console.warn('[Place] No camera available'); return; }
+              const dir = new THREE.Vector3(0, 0, -1).applyQuaternion(cam.quaternion);
+              const pos = new THREE.Vector3().copy(cam.position).add(dir.multiplyScalar(2));
+              m.position.copy(pos);
+              m.quaternion.copy(cam.quaternion);
+              console.log('[Place] Using camera fallback', m.position);
+            }
+          } else {
+            const cam = sceneEl.camera;
+            if (!cam) { console.warn('[Place] No frame/refSpace and no camera'); return; }
+            const dir = new THREE.Vector3(0, 0, -1).applyQuaternion(cam.quaternion);
+            const pos = new THREE.Vector3().copy(cam.position).add(dir.multiplyScalar(2));
+            m.position.copy(pos);
+            m.quaternion.copy(cam.quaternion);
+            console.log('[Place] Using camera fallback (no frame)', m.position);
+          }
         }
         modelEl.setAttribute('visible', true);
+        m.updateMatrixWorld(true);
+        console.log('[Place] visible=', modelEl.getAttribute('visible'), 'children=', m.children?.length, 'pos=', m.position);
       }
 
       function resetPlacement() {
