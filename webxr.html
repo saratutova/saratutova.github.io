@@ -7,7 +7,7 @@
   <script>
     // Ensure first log is the build version and capture all logs early
     (function(){
-      window.BUILD_NUMBER = 8; // INCREMENT BEFORE COMMIT
+      window.BUILD_NUMBER = 9; // INCREMENT BEFORE COMMIT
       if (!window.__logBuffer) window.__logBuffer = [];
       const origLog = console.log.bind(console);
       const origWarn = console.warn.bind(console);
@@ -66,7 +66,7 @@
   </div>
 
   <a-scene
-    renderer="alpha: true; logarithmicDepthBuffer: true; antialias: true"
+    renderer="alpha: true; antialias: true"
     webxr="optionalFeatures: hit-test,dom-overlay,anchors; overlayElement: #overlay"
     xr-mode-ui="enabled: true"
     embedded>
@@ -103,6 +103,7 @@
       const safeMode = url.searchParams.get('safemode') === '1' || url.searchParams.get('safe') === '1';
       const forceBasic = url.searchParams.get('forceBasic') === '1';
       const forceCube = url.searchParams.get('forceCube') === '1';
+      const forceRaw = url.searchParams.get('forceRaw') === '1';
       const sceneEl = document.querySelector('a-scene');
       const reticleEl = document.getElementById('reticle');
       const modelEl = document.getElementById('worldModel');
@@ -126,11 +127,38 @@
         try {
           modelEl.removeAttribute('gltf-model');
           modelEl.setAttribute('geometry', 'primitive: box; width: 0.6; height: 0.6; depth: 0.6');
-          modelEl.setAttribute('material', 'color: #4ecdc4; metalness: 0.1; roughness: 0.8; shader: flat');
+          modelEl.setAttribute('material', 'color: #4ecdc4; metalness: 0.1; roughness: 0.8; shader: flat; side: double');
           console.log('[Model] Forcing cube placeholder via URL param forceCube=1');
         } catch(_) {}
       } else {
         modelEl.setAttribute('gltf-model', '#model');
+      }
+      // Also create a raw THREE cube if requested (bypasses A-Frame entity visibility)
+      if (forceRaw) {
+        try {
+          const g = new THREE.BoxGeometry(0.4, 0.4, 0.4);
+          const mat = new THREE.MeshBasicMaterial({ color: 0xff00ff, opacity: 0.95, transparent: true });
+          if (mat.depthTest !== undefined) mat.depthTest = false;
+          if (mat.depthWrite !== undefined) mat.depthWrite = false;
+          if (mat.side !== undefined) mat.side = THREE.DoubleSide;
+          rawCube = new THREE.Mesh(g, mat);
+          rawCube.visible = false;
+          sceneEl.object3D.add(rawCube);
+          console.log('[Model] forceRaw=1 active: using raw THREE.Mesh cube');
+        } catch (e) { console.warn('Create raw cube failed', e); }
+      }
+      // Optional raw cube
+      if (forceRaw) {
+        try {
+          const g = new THREE.BoxGeometry(0.4, 0.4, 0.4);
+          const mat = new THREE.MeshBasicMaterial({ color: 0xff00ff, opacity: 0.95, transparent: true });
+          if (mat.depthTest !== undefined) mat.depthTest = false;
+          if (mat.depthWrite !== undefined) mat.depthWrite = false;
+          rawCube = new THREE.Mesh(g, mat);
+          rawCube.visible = false;
+          sceneEl.object3D.add(rawCube);
+          console.log('[Model] forceRaw=1 active: using raw THREE.Mesh cube');
+        } catch (e) { console.warn('Create raw cube failed', e); }
       }
       const startBtn = document.getElementById('startBtn');
       const copyLogsBtn = document.getElementById('copyLogsBtn');
@@ -152,6 +180,7 @@
       // Debug helpers attached to the placed model for visibility confirmation
       let axesHelper = null;
       let bboxHelper = null;
+      let rawCube = null; // Optional raw THREE cube bypassing A-Frame for maximum visibility
 
       function supportsWebXR() {
         return navigator.xr && navigator.xr.isSessionSupported;
@@ -307,7 +336,8 @@
 
       async function placeAtReticle() {
         console.log('[Place] begin. reticleVisible=', reticleEl.getAttribute('visible'), 'haveHitTest=', haveHitTest);
-        const m = modelEl.object3D;
+        const m = (forceRaw && rawCube) ? rawCube : modelEl.object3D;
+        if (!m) { console.warn('[Place] No target object to place'); return; }
         if (haveHitTest && reticleEl.getAttribute('visible')) {
           const r = reticleEl.object3D;
           m.position.copy(r.position);
@@ -331,7 +361,14 @@
             console.log('[Place] Using camera fallback', m.position);
           }
         }
-        modelEl.setAttribute('visible', true);
+        // Nudge up slightly to avoid z-fighting with the detected plane
+        try { m.position.y += 0.05; } catch(_) {}
+        if (forceRaw && rawCube) {
+          rawCube.visible = true;
+          console.log('[Place] Showing raw cube');
+        } else {
+          modelEl.setAttribute('visible', true);
+        }
         // Sync A-Frame attributes so transforms persist
         try {
           const euler = new THREE.Euler().setFromQuaternion(m.quaternion, 'YXZ');
@@ -340,12 +377,14 @@
             y: THREE.MathUtils.radToDeg(euler.y),
             z: THREE.MathUtils.radToDeg(euler.z)
           };
-          modelEl.setAttribute('position', `${m.position.x} ${m.position.y} ${m.position.z}`);
-          modelEl.setAttribute('rotation', `${rot.x} ${rot.y} ${rot.z}`);
+          if (!(forceRaw && rawCube)) {
+            modelEl.setAttribute('position', `${m.position.x} ${m.position.y} ${m.position.z}`);
+            modelEl.setAttribute('rotation', `${rot.x} ${rot.y} ${rot.z}`);
+          }
         } catch (_) {}
-        // Auto-rescale model to a reasonable size (skip if forceCube; cube already sized)
+        // Auto-rescale model to a reasonable size (skip if forceCube or forceRaw; cubes already sized)
         try {
-          if (!forceCube) {
+          if (!forceCube && !(forceRaw && rawCube)) {
             const bbox = new THREE.Box3().setFromObject(m);
             const size = new THREE.Vector3(); bbox.getSize(size);
             const maxDim = Math.max(size.x, size.y, size.z);
@@ -384,7 +423,7 @@
           sceneEl.object3D.add(bboxHelper);
         } catch (e) { console.warn('Helpers failed', e); }
         m.updateMatrixWorld(true);
-        console.log('[Place] visible=', modelEl.getAttribute('visible'), 'children=', m.children?.length, 'pos=', m.position);
+        console.log('[Place] visible=', (forceRaw && rawCube) ? rawCube.visible : modelEl.getAttribute('visible'), 'children=', m.children?.length, 'pos=', m.position);
       }
 
       function resetPlacement() {
