@@ -17,11 +17,13 @@
       padding: 10px 16px; border-radius: 999px; border: none; background: #111; color: white; margin: 0 6px; font-weight: 600;
     }
     #hint { position: fixed; top: 16px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.6); color: #fff; padding: 8px 12px; border-radius: 8px; z-index: 10; }
+    #buildBadge { position: fixed; top: 16px; right: 16px; background: rgba(17,17,17,0.8); color: #fff; padding: 6px 10px; border-radius: 999px; font-size: 12px; z-index: 10; }
   </style>
 </head>
 <body>
   <div id="overlay">
     <div id="hint">Tap Start AR. Move your phone to find a surface. Tap Place to anchor the model.</div>
+    <div id="buildBadge">build 1</div>
     <div id="ui">
       <button id="backBtn" onclick="history.back()">Back</button>
       <button id="copyLogsBtn" title="Copy all console logs">Copy logs</button>
@@ -60,6 +62,11 @@
 
   <script>
     (function() {
+      // Bump this number before each commit to verify latest deployed build
+      const BUILD_NUMBER = 1; // INCREMENT BEFORE COMMIT
+      console.log(`[Build] webxr.html build`, BUILD_NUMBER);
+      const badgeEl = document.getElementById('buildBadge');
+      if (badgeEl) badgeEl.textContent = `build ${BUILD_NUMBER}`;
       const url = new URL(window.location.href);
       const safeMode = url.searchParams.get('safemode') === '1' || url.searchParams.get('safe') === '1';
       const sceneEl = document.querySelector('a-scene');
