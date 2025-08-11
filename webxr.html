@@ -7,7 +7,7 @@
   <script>
     // Ensure first log is the build version and capture all logs early
     (function(){
-      window.BUILD_NUMBER = 5; // INCREMENT BEFORE COMMIT
+      window.BUILD_NUMBER = 6; // INCREMENT BEFORE COMMIT
       if (!window.__logBuffer) window.__logBuffer = [];
       const origLog = console.log.bind(console);
       const origWarn = console.warn.bind(console);
@@ -47,9 +47,9 @@
   </style>
 </head>
 <body>
-  <div id="overlay">
+    <div id="overlay">
     <div id="hint">Tap Start AR. Move your phone to find a surface. Tap Place to anchor the model.</div>
-    <div id="buildBadge">build 2</div>
+      <div id="buildBadge">build 5</div>
     <div id="ui">
       <button id="backBtn" onclick="history.back()">Back</button>
       <button id="copyLogsBtn" title="Download all console logs">Download logs</button>
@@ -131,6 +131,9 @@
       let lastViewerPosition = new THREE.Vector3();
       let lastViewerOrientation = new THREE.Quaternion();
       let haveViewerPose = false;
+      // Debug helpers attached to the placed model for visibility confirmation
+      let axesHelper = null;
+      let bboxHelper = null;
 
       function supportsWebXR() {
         return navigator.xr && navigator.xr.isSessionSupported;
@@ -335,6 +338,26 @@
             console.log('[Place] Rescaled model factor=', factor, 'newScale=', newScale, 'bbox=', size);
           }
         } catch (e) { console.warn('Rescale failed', e); }
+        // Add/update bright debug helpers to make placement undeniably visible
+        try {
+          if (!axesHelper) {
+            axesHelper = new THREE.AxesHelper(0.4);
+            axesHelper.material.depthTest = false;
+            axesHelper.renderOrder = 9999;
+            m.add(axesHelper);
+          }
+          // Remove existing bbox helper if any, then create a fresh one around current object
+          if (bboxHelper) {
+            if (bboxHelper.parent) bboxHelper.parent.remove(bboxHelper);
+            bboxHelper = null;
+          }
+          const tempBox = new THREE.Box3().setFromObject(m);
+          bboxHelper = new THREE.Box3Helper(tempBox, new THREE.Color(0xff00ff));
+          bboxHelper.renderOrder = 9999;
+          bboxHelper.material.depthTest = false;
+          // Attach helper to scene root so it's not affected by model's scale non-uniformity
+          sceneEl.object3D.add(bboxHelper);
+        } catch (e) { console.warn('Helpers failed', e); }
         m.updateMatrixWorld(true);
         console.log('[Place] visible=', modelEl.getAttribute('visible'), 'children=', m.children?.length, 'pos=', m.position);
       }
@@ -342,6 +365,12 @@
       function resetPlacement() {
         modelEl.setAttribute('visible', false);
         anchor = null;
+        try {
+          if (axesHelper && axesHelper.parent) axesHelper.parent.remove(axesHelper);
+          axesHelper = null;
+          if (bboxHelper && bboxHelper.parent) bboxHelper.parent.remove(bboxHelper);
+          bboxHelper = null;
+        } catch(_){}
       }
 
       // Add logs to verify UI is interactive
