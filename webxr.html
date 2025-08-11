@@ -24,6 +24,7 @@
     <div id="hint">Tap Start AR. Move your phone to find a surface. Tap Place to anchor the model.</div>
     <div id="ui">
       <button id="backBtn" onclick="history.back()">Back</button>
+      <button id="consoleBtn" title="Toggle console">Console</button>
       <button id="startBtn">Start AR</button>
       <button id="placeBtn" disabled>Place</button>
       <button id="resetBtn" disabled>Reset</button>
@@ -32,7 +33,7 @@
 
   <a-scene
     renderer="alpha: true; logarithmicDepthBuffer: true; antialias: true"
-    webxr="mode: ar; optionalFeatures: hit-test,dom-overlay,anchors; overlayElement: #overlay"
+    webxr="optionalFeatures: hit-test,dom-overlay,anchors; overlayElement: #overlay"
     xr-mode-ui="enabled: true"
     embedded>
 
@@ -61,6 +62,7 @@
       const reticleEl = document.getElementById('reticle');
       const modelEl = document.getElementById('worldModel');
       const startBtn = document.getElementById('startBtn');
+      const consoleBtn = document.getElementById('consoleBtn');
       const placeBtn = document.getElementById('placeBtn');
       const resetBtn = document.getElementById('resetBtn');
       const hintEl = document.getElementById('hint');
@@ -72,6 +74,10 @@
       let refSpace = null;
       let anchor = null; // optional XRAnchor if supported
       let haveHitTest = false;
+      // Cache the last valid XR viewer pose (updated inside the XR frame callback)
+      let lastViewerPosition = new THREE.Vector3();
+      let lastViewerOrientation = new THREE.Quaternion();
+      let haveViewerPose = false;
 
       function supportsWebXR() {
         return navigator.xr && navigator.xr.isSessionSupported;
@@ -111,6 +117,8 @@
           if (sceneEl.renderer && sceneEl.renderer.setClearColor) {
             sceneEl.renderer.setClearColor(0x000000, 0);
           }
+          // Ensure in-page console is visible once AR starts
+          if (window.eruda && typeof eruda.show === 'function') { try { eruda.show(); } catch(e){} }
           hintEl.textContent = 'AR session started. Move to find a surface.';
           // Proactively run AR init in case framework event doesn't fire
           try { await onEnterVR(); } catch (err) { console.warn('AR init fallback failed', err); }
@@ -185,6 +193,18 @@
         sceneEl.renderer.setAnimationLoop((timestamp, frame) => {
           sceneEl.frame = frame;
           if (!frame || !hitTestSource || !refSpace) { reticleEl.setAttribute('visible', false); return; }
+          // Update cached viewer pose for use outside this callback
+          try {
+            const vp = frame.getViewerPose(refSpace);
+            if (vp && vp.views && vp.views[0]) {
+              const t = vp.transform;
+              lastViewerPosition.set(t.position.x, t.position.y, t.position.z);
+              lastViewerOrientation.set(t.orientation.x, t.orientation.y, t.orientation.z, t.orientation.w);
+              haveViewerPose = true;
+            }
+          } catch (err) {
+            // ignore; will fallback to camera
+          }
           const results = frame.getHitTestResults(hitTestSource);
           if (results && results.length > 0) {
             const pose = results[0].getPose(refSpace);
@@ -211,37 +231,21 @@
           m.quaternion.copy(r.quaternion);
           console.log('[Place] Using reticle pose', m.position);
         } else {
-          // Fallback: place ~2m in front of viewer using XR viewer pose if available
-          const frame = sceneEl.frame;
-          if (frame && refSpace) {
-            const viewerPose = frame.getViewerPose(refSpace);
-            if (viewerPose && viewerPose.views && viewerPose.views[0]) {
-              const t = viewerPose.transform;
-              const orient = new THREE.Quaternion(t.orientation.x, t.orientation.y, t.orientation.z, t.orientation.w);
-              const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(orient).normalize();
-              const base = new THREE.Vector3(t.position.x, t.position.y, t.position.z);
-              const pos = base.clone().add(forward.multiplyScalar(2));
-              m.position.copy(pos);
-              m.quaternion.copy(orient);
-              console.log('[Place] Using viewer pose fallback', m.position);
-            } else {
-              // Final fallback: use scene camera
-              const cam = sceneEl.camera;
-              if (!cam) { console.warn('[Place] No camera available'); return; }
-              const dir = new THREE.Vector3(0, 0, -1).applyQuaternion(cam.quaternion);
-              const pos = new THREE.Vector3().copy(cam.position).add(dir.multiplyScalar(2));
-              m.position.copy(pos);
-              m.quaternion.copy(cam.quaternion);
-              console.log('[Place] Using camera fallback', m.position);
-            }
+          // Fallback: place ~2m in front of last known viewer pose, else camera
+          if (haveViewerPose) {
+            const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(lastViewerOrientation).normalize();
+            const pos = new THREE.Vector3().copy(lastViewerPosition).add(forward.multiplyScalar(2));
+            m.position.copy(pos);
+            m.quaternion.copy(lastViewerOrientation);
+            console.log('[Place] Using cached viewer pose', m.position);
           } else {
             const cam = sceneEl.camera;
-            if (!cam) { console.warn('[Place] No frame/refSpace and no camera'); return; }
+            if (!cam) { console.warn('[Place] No viewer pose and no camera'); return; }
             const dir = new THREE.Vector3(0, 0, -1).applyQuaternion(cam.quaternion);
             const pos = new THREE.Vector3().copy(cam.position).add(dir.multiplyScalar(2));
             m.position.copy(pos);
             m.quaternion.copy(cam.quaternion);
-            console.log('[Place] Using camera fallback (no frame)', m.position);
+            console.log('[Place] Using camera fallback', m.position);
           }
         }
         modelEl.setAttribute('visible', true);
@@ -255,7 +259,19 @@
       }
 
       // Add logs to verify UI is interactive
-      startBtn.addEventListener('click', () => { console.log('[UI] Start AR clicked'); startAR(); });
+      startBtn.addEventListener('click', () => { console.log('[UI] Start AR clicked'); if (window.eruda) { try { eruda.show(); } catch(e){} } startAR(); });
+      if (consoleBtn) {
+        consoleBtn.addEventListener('click', () => {
+          console.log('[UI] Console toggled');
+          if (!window.eruda) return;
+          try {
+            // toggle
+            // @ts-ignore
+            const isShown = eruda?._devTools?._isShow || eruda?._isShow;
+            if (isShown) eruda.hide(); else eruda.show();
+          } catch (e) { try { eruda.show(); } catch(_){} }
+        });
+      }
       placeBtn.addEventListener('click', () => { console.log('[UI] Place clicked'); placeAtReticle(); });
       resetBtn.addEventListener('click', () => { console.log('[UI] Reset clicked'); resetPlacement(); });
 
