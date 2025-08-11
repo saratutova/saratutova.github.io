@@ -10,7 +10,8 @@
     /* Ensure AR canvas is transparent so the camera feed shows */
     html, body, a-scene { background: transparent !important; }
     canvas, .a-canvas { background-color: transparent !important; }
-    #overlay { position: fixed; top: 0; left: 0; right: 0; }
+    /* Make overlay cover the whole viewport so buttons are clickable in AR */
+    #overlay { position: fixed; inset: 0; z-index: 20; }
     #ui { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); z-index: 10; }
     #placeBtn, #startBtn, #resetBtn {
       padding: 10px 16px; border-radius: 999px; border: none; background: #111; color: white; margin: 0 6px; font-weight: 600;
@@ -130,6 +131,17 @@
         // Called when AR session starts
         xrSession = sceneEl.renderer.xr.getSession();
         refSpace = sceneEl.renderer.xr.getReferenceSpace();
+        if (!refSpace && xrSession) {
+          try {
+            refSpace = await xrSession.requestReferenceSpace('local-floor');
+          } catch (e1) {
+            try {
+              refSpace = await xrSession.requestReferenceSpace('local');
+            } catch (e2) {
+              console.warn('Could not obtain reference space', e1, e2);
+            }
+          }
+        }
 
         try {
           viewerSpace = await xrSession.requestReferenceSpace('viewer');
@@ -138,6 +150,7 @@
           haveHitTest = true;
           placeBtn.disabled = false;
           resetBtn.disabled = false;
+          console.log('[WebXR] Hit-test ready. Buttons enabled.');
           hintEl.textContent = 'Move to find a surface, then tap Place.';
         } catch (e) {
           console.warn('Hit-test not available', e);
@@ -211,9 +224,10 @@
         anchor = null;
       }
 
-      startBtn.addEventListener('click', startAR);
-      placeBtn.addEventListener('click', placeAtReticle);
-      resetBtn.addEventListener('click', resetPlacement);
+      // Add logs to verify UI is interactive
+      startBtn.addEventListener('click', () => { console.log('[UI] Start AR clicked'); startAR(); });
+      placeBtn.addEventListener('click', () => { console.log('[UI] Place clicked'); placeAtReticle(); });
+      resetBtn.addEventListener('click', () => { console.log('[UI] Reset clicked'); resetPlacement(); });
 
       sceneEl.addEventListener('enter-vr', onEnterVR);
       sceneEl.addEventListener('exit-vr', onSessionEnd);
@@ -222,8 +236,38 @@
       document.addEventListener('click', (e) => {
         // no-op, just ensures DOM overlay is interactive
       });
+
+      // If the GLB fails to load, fallback to a visible placeholder so placement works
+      modelEl.addEventListener('model-error', (e) => {
+        console.error('[Model] Failed to load GLB. Falling back to placeholder.', e?.detail);
+        modelEl.removeAttribute('gltf-model');
+        modelEl.setAttribute('geometry', 'primitive: box; width: 0.6; height: 0.6; depth: 0.6');
+        modelEl.setAttribute('material', 'color: #4ecdc4; metalness: 0.1; roughness: 0.8');
+      }, { once: true });
+
+      // Also, if user taps Place and there is no mesh yet, attach a placeholder
+      function ensurePlaceholderIfEmpty() {
+        const hasChildren = modelEl.object3D && modelEl.object3D.children && modelEl.object3D.children.length > 0;
+        if (!hasChildren) {
+          modelEl.removeAttribute('gltf-model');
+          modelEl.setAttribute('geometry', 'primitive: box; width: 0.6; height: 0.6; depth: 0.6');
+          modelEl.setAttribute('material', 'color: #4ecdc4; metalness: 0.1; roughness: 0.8');
+        }
+      }
+
+      const originalPlace = placeAtReticle;
+      placeAtReticle = async function() {
+        ensurePlaceholderIfEmpty();
+        return originalPlace.apply(this, arguments);
+      };
     })();
   </script>
+
+  <script src="https://cdn.jsdelivr.net/npm/eruda"></script>
+  <script>
+    eruda.init();
+  </script>
+
 </body>
 </html>
 
