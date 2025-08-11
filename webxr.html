@@ -7,7 +7,7 @@
   <script>
     // Ensure first log is the build version and capture all logs early
     (function(){
-      window.BUILD_NUMBER = 6; // INCREMENT BEFORE COMMIT
+      window.BUILD_NUMBER = 7; // INCREMENT BEFORE COMMIT
       if (!window.__logBuffer) window.__logBuffer = [];
       const origLog = console.log.bind(console);
       const origWarn = console.warn.bind(console);
@@ -18,7 +18,10 @@
       }
       function push(level, args){
         const ts = new Date().toISOString();
-        const msg = Array.from(args).map(fmt).join(' ');
+        let msg = Array.from(args).map(fmt).join(' ');
+        if (typeof msg === 'string' && msg.length > 2000) {
+          msg = msg.slice(0, 2000) + ' …[truncated]';
+        }
         window.__logBuffer.push(`[${ts}] [${level}] ${msg}`);
         if (window.__logBuffer.length > 2000) window.__logBuffer.shift();
       }
@@ -49,7 +52,7 @@
 <body>
     <div id="overlay">
     <div id="hint">Tap Start AR. Move your phone to find a surface. Tap Place to anchor the model.</div>
-      <div id="buildBadge">build 5</div>
+      <div id="buildBadge">build 6</div>
     <div id="ui">
       <button id="backBtn" onclick="history.back()">Back</button>
       <button id="copyLogsBtn" title="Download all console logs">Download logs</button>
@@ -96,12 +99,13 @@
       const url = new URL(window.location.href);
       const safeMode = url.searchParams.get('safemode') === '1' || url.searchParams.get('safe') === '1';
       const forceBasic = url.searchParams.get('forceBasic') === '1';
+      const forceCube = url.searchParams.get('forceCube') === '1';
       const sceneEl = document.querySelector('a-scene');
       const reticleEl = document.getElementById('reticle');
       const modelEl = document.getElementById('worldModel');
       // Log when the GLB finishes loading and optionally force basic materials for visibility
       modelEl.addEventListener('model-loaded', (e) => {
-        console.log('[Model] GLB loaded', e?.detail);
+        console.log('[Model] GLB loaded');
         if (forceBasic && modelEl.object3D) {
           try {
             modelEl.object3D.traverse((child) => {
@@ -114,6 +118,15 @@
           } catch(err) { console.warn('Force basic failed', err); }
         }
       });
+      // If forcing a cube, replace the model immediately
+      if (forceCube) {
+        try {
+          modelEl.removeAttribute('gltf-model');
+          modelEl.setAttribute('geometry', 'primitive: box; width: 0.6; height: 0.6; depth: 0.6');
+          modelEl.setAttribute('material', 'color: #4ecdc4; metalness: 0.1; roughness: 0.8; shader: flat');
+          console.log('[Model] Forcing cube placeholder via URL param forceCube=1');
+        } catch(_) {}
+      }
       const startBtn = document.getElementById('startBtn');
       const copyLogsBtn = document.getElementById('copyLogsBtn');
       const placeBtn = document.getElementById('placeBtn');
@@ -335,7 +348,7 @@
             const curScale = modelEl.getAttribute('scale') || {x:1,y:1,z:1};
             const newScale = `${curScale.x * factor} ${curScale.y * factor} ${curScale.z * factor}`;
             modelEl.setAttribute('scale', newScale);
-            console.log('[Place] Rescaled model factor=', factor, 'newScale=', newScale, 'bbox=', size);
+            console.log('[Place] Rescaled model factor=', factor, 'newScale=', newScale);
           }
         } catch (e) { console.warn('Rescale failed', e); }
         // Add/update bright debug helpers to make placement undeniably visible
