@@ -7,7 +7,7 @@
   <script>
     // Ensure first log is the build version and capture all logs early
     (function(){
-      window.BUILD_NUMBER = 4; // INCREMENT BEFORE COMMIT
+      window.BUILD_NUMBER = 5; // INCREMENT BEFORE COMMIT
       if (!window.__logBuffer) window.__logBuffer = [];
       const origLog = console.log.bind(console);
       const origWarn = console.warn.bind(console);
@@ -52,7 +52,7 @@
     <div id="buildBadge">build 2</div>
     <div id="ui">
       <button id="backBtn" onclick="history.back()">Back</button>
-      <button id="copyLogsBtn" title="Copy all console logs">Copy logs</button>
+      <button id="copyLogsBtn" title="Download all console logs">Download logs</button>
       <button id="startBtn">Start AR</button>
       <button id="placeBtn" disabled>Place</button>
       <button id="resetBtn" disabled>Reset</button>
@@ -347,25 +347,21 @@
       // Add logs to verify UI is interactive
       startBtn.addEventListener('click', () => { console.log('[UI] Start AR clicked'); startAR(); });
       if (copyLogsBtn) {
-        copyLogsBtn.addEventListener('click', async () => {
-          console.log('[UI] Copy logs');
+        copyLogsBtn.addEventListener('click', () => {
+          console.log('[UI] Download logs');
           const text = (window.__logBuffer || []).join('\n');
-          const doDownload = () => {
-            try {
-              const blob = new Blob([text], { type: 'text/plain' });
-              const url = URL.createObjectURL(blob);
-              const a = document.createElement('a');
-              a.href = url; a.download = 'webxr-logs.txt';
-              document.body.appendChild(a); a.click(); document.body.removeChild(a);
-              setTimeout(() => URL.revokeObjectURL(url), 1000);
-              hintEl.textContent = 'Logs download started.';
-            } catch (_) { hintEl.textContent = 'Copy/download failed.'; }
-          };
           try {
-            await navigator.clipboard.writeText(text);
-            hintEl.textContent = 'Logs copied to clipboard.';
-          } catch (e) {
-            doDownload();
+            const blob = new Blob([text], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url; a.download = 'webxr-logs.txt';
+            document.body.appendChild(a); a.click(); document.body.removeChild(a);
+            setTimeout(() => URL.revokeObjectURL(url), 1000);
+            hintEl.textContent = 'Logs download started.';
+            setTimeout(() => { if (hintEl.textContent.includes('Logs')) hintEl.textContent = 'Move to find a surface, then tap Place.'; }, 2000);
+          } catch (_) {
+            hintEl.textContent = 'Download failed.';
+            setTimeout(() => { if (hintEl.textContent.includes('Download failed')) hintEl.textContent = 'Move to find a surface, then tap Place.'; }, 2000);
           }
         });
       }
