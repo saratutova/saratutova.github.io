@@ -7,7 +7,7 @@
   <script>
     // Ensure first log is the build version and capture all logs early
     (function(){
-      window.BUILD_NUMBER = 18; // INCREMENT BEFORE COMMIT
+      window.BUILD_NUMBER = 19; // INCREMENT BEFORE COMMIT
       if (!window.__logBuffer) window.__logBuffer = [];
       const origLog = console.log.bind(console);
       const origWarn = console.warn.bind(console);
@@ -112,6 +112,9 @@
       const bgColorParam = url.searchParams.get('bg'); // hex like ff0000
       const alwaysBox = url.searchParams.get('ab') === '1' || url.searchParams.get('always') === '1';
       const verbose = url.searchParams.get('diag') === '1' || url.searchParams.get('v') === '1';
+      const fullQuad = url.searchParams.get('fg') === '1' || url.searchParams.get('full') === '1';
+      const domBox = url.searchParams.get('dom') === '1';
+      const glClear = url.searchParams.get('glclear') === '1';
       const sceneEl = document.querySelector('a-scene');
       const reticleEl = document.getElementById('reticle');
       const modelEl = document.getElementById('worldModel');
@@ -119,6 +122,7 @@
       var afCubeEl = null; // A-Frame fallback cube for guaranteed visibility
       var headLocked = null; // Object fixed to camera for last-resort visibility (follows camera)
       var alwaysBoxEl = null; // Always-visible A-Frame box at fixed world pose
+      var fullQuadMesh = null; // Large plane in front of camera to prove 3D draw path
       // Log when the GLB finishes loading and optionally force basic materials for visibility
       modelEl.addEventListener('model-loaded', (e) => {
         console.log('[Model] GLB loaded');
@@ -227,6 +231,16 @@
           });
           console.log('[Debug] Always-visible box created');
         } catch(_) { console.warn('Always box creation failed'); }
+      }
+
+      // Add a large DOM overlay red box to verify DOM overlay layer visibility
+      if (domBox) {
+        try {
+          const d = document.createElement('div'); d.id = 'domDebugBox';
+          d.style.cssText = 'position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:160px;height:160px;background:rgba(255,0,0,0.6);z-index:9999;border-radius:16px;';
+          document.body.appendChild(d);
+          console.log('[Debug] DOM overlay debug box added');
+        } catch(_) {}
       }
 
       // Create a head-locked cube that sits in front of the camera (follows each frame)
@@ -392,6 +406,18 @@
             sceneEl.renderer.setClearColor(opaqueBg ? 0xff0000 : 0x000000, opaqueBg ? 1 : 0);
           }
         }
+        // Create a large red plane 0.4m in front of camera (no transparency)
+        if (fullQuad && !fullQuadMesh) {
+          try {
+            const geom = new THREE.PlaneGeometry(big ? 1.2 : 0.8, big ? 1.2 : 0.8);
+            const mat = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+            mat.depthTest = false; mat.depthWrite = false;
+            fullQuadMesh = new THREE.Mesh(geom, mat);
+            fullQuadMesh.renderOrder = 9999;
+            sceneEl.object3D.add(fullQuadMesh);
+            console.log('[Debug] Full-quad created');
+          } catch(_) { console.warn('Full-quad creation failed'); }
+        }
         try { sceneEl.setAttribute('xr-updater', ''); } catch(_) {}
       });
 
@@ -404,6 +430,15 @@
               this._onceLogged = true;
               try { console.log('[Diag] scene children=', sceneEl.object3D.children?.length, 'camera pos=', sceneEl.camera?.position); } catch(_) {}
             }
+            // Optional raw GL clear to verify we can affect framebuffer
+            if (glClear && sceneEl.renderer) {
+              try {
+                const gl = sceneEl.renderer.getContext();
+                gl.disable(gl.DEPTH_TEST);
+                gl.clearColor(0, 1, 0, 1); // green
+                gl.clear(gl.COLOR_BUFFER_BIT);
+              } catch(_) {}
+            }
             // Update head-locked follower
             if (headLocked && sceneEl.camera) {
               try {
@@ -412,6 +447,16 @@
                 const pos = new THREE.Vector3().copy(cam.position).add(forward.multiplyScalar(big ? 0.8 : 0.5));
                 headLocked.position.copy(pos);
                 headLocked.quaternion.copy(cam.quaternion);
+              } catch(_) {}
+            }
+            // Keep full-quad in front of camera
+            if (fullQuadMesh && sceneEl.camera) {
+              try {
+                const cam = sceneEl.camera;
+                const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(cam.quaternion).normalize();
+                const pos = new THREE.Vector3().copy(cam.position).add(forward.multiplyScalar(0.4));
+                fullQuadMesh.position.copy(pos);
+                fullQuadMesh.quaternion.copy(cam.quaternion);
               } catch(_) {}
             }
             if (!frame || !hitTestSource || !refSpace) { reticleEl.setAttribute('visible', false); return; }
