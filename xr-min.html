@@ -16,7 +16,7 @@
 <body>
   <div id="overlay" style="position:fixed; inset:0; z-index: 20; pointer-events:auto;">
     <div id="hint">Tap Start AR, then Place.</div>
-    <div id="build">xr-min build 4</div>
+    <div id="build">xr-min build 5</div>
     <div id="ui">
       <button id="start">Start AR</button>
       <button id="place" disabled>Place</button>
@@ -35,7 +35,6 @@
   </script>
 
   <script src="https://cdn.jsdelivr.net/npm/three@0.150.1/build/three.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/three@0.150.1/examples/js/loaders/GLTFLoader.js"></script>
 
   <script>
   (async function(){
@@ -94,7 +93,10 @@
     // Load GLB model by default
     let model = null; let modelLoaded = false;
     try {
-      const loader = new THREE.GLTFLoader();
+      // Lazy-load GLTFLoader to avoid module resolution issues on some devices
+      const loaderModule = await import('https://cdn.jsdelivr.net/npm/three@0.150.1/examples/jsm/loaders/GLTFLoader.js');
+      const GLTFLoader = loaderModule.GLTFLoader || loaderModule.default;
+      const loader = new GLTFLoader();
       loader.load(resolvedModel, (gltf) => {
         model = gltf.scene || (gltf.scenes && gltf.scenes[0]);
         if (!model) { console.log('[Model] GLB had no scene, fallback cube'); return; }
