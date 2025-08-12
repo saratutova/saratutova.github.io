@@ -35,7 +35,7 @@
   </script>
 
   <script src="https://cdn.jsdelivr.net/npm/three@0.152.2/build/three.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/three@0.152.2/examples/jsm/webxr/XRControllerModelFactory.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.152.2/examples/js/loaders/GLTFLoader.js"></script>
 
   <script>
   (async function(){
@@ -43,6 +43,9 @@
     const autoPlace = url.searchParams.get('autoPlace') === '1';
     const opaque = url.searchParams.get('opaque') === '1';
     const big = url.searchParams.get('big') === '1';
+    const forceCube = url.searchParams.get('cube') === '1';
+    const basicMat = url.searchParams.get('basic') === '1';
+    const modelUrl = url.searchParams.get('model') || './models/7579_3K_V2.glb';
 
     const hint = document.getElementById('hint');
     const startBtn = document.getElementById('start');
@@ -73,7 +76,11 @@
     reticle.renderOrder = 9999; reticleMat.depthTest = false; reticleMat.depthWrite = false;
     scene.add(reticle);
 
-    // Cube to place
+    // Lights for GLB
+    const amb = new THREE.AmbientLight(0xffffff, 1.0); scene.add(amb);
+    const dirLight = new THREE.DirectionalLight(0xffffff, 0.8); dirLight.position.set(0, 1, 0); scene.add(dirLight);
+
+    // Cube fallback
     const s = big ? 0.8 : 0.4;
     const cube = new THREE.Mesh(
       new THREE.BoxGeometry(s, s, s),
@@ -81,6 +88,30 @@
     );
     cube.visible = false; cube.renderOrder = 9999; cube.material.depthTest = false; cube.material.depthWrite = false;
     scene.add(cube);
+
+    // Load GLB model by default
+    let model = null; let modelLoaded = false;
+    try {
+      const loader = new THREE.GLTFLoader();
+      loader.load(modelUrl, (gltf) => {
+        model = gltf.scene || (gltf.scenes && gltf.scenes[0]);
+        if (!model) { console.log('[Model] GLB had no scene, fallback cube'); return; }
+        if (basicMat) {
+          model.traverse((child) => {
+            if (child.isMesh && child.material) {
+              const map = child.material.map || null;
+              child.material = new THREE.MeshBasicMaterial({ color: 0xffffff, map });
+            }
+          });
+        }
+        model.visible = false;
+        model.renderOrder = 9999;
+        model.traverse((child)=>{ if (child.material){ child.material.depthTest=false; child.material.depthWrite=false; child.material.transparent=false; child.material.needsUpdate=true; } });
+        scene.add(model);
+        modelLoaded = true;
+        console.log('[Model] GLB loaded', modelUrl);
+      }, undefined, (err) => { console.log('[Model] load error', String(err)); });
+    } catch (e) { console.log('[Model] loader init failed', e); }
 
     let xrSession = null; let refSpace = null; let viewerSpace = null; let hitSource = null; let autoPlaced = false;
 
@@ -108,17 +139,28 @@
     }
 
     function place(){
+      const target = (!forceCube && modelLoaded && model) ? model : cube;
       if (reticle.visible) {
-        cube.position.copy(reticle.position);
-        cube.quaternion.copy(reticle.quaternion);
+        target.position.copy(reticle.position);
+        target.quaternion.copy(reticle.quaternion);
       } else {
         const dir = new THREE.Vector3(0,0,-1).applyQuaternion(camera.quaternion);
-        cube.position.copy(camera.position).add(dir.multiplyScalar(1));
-        cube.quaternion.copy(camera.quaternion);
+        target.position.copy(camera.position).add(dir.multiplyScalar(1));
+        target.quaternion.copy(camera.quaternion);
       }
-      cube.position.y += 0.05;
-      cube.visible = true;
-      console.log('[Place] cube placed', cube.position);
+      target.position.y += 0.05;
+      target.visible = true;
+      if (target === model) {
+        try {
+          const bbox = new THREE.Box3().setFromObject(model);
+          const size = new THREE.Vector3(); bbox.getSize(size);
+          const maxDim = Math.max(size.x, size.y, size.z) || 1;
+          const factor = Math.min(Math.max(0.05, 0.6 / maxDim), 5);
+          model.scale.setScalar(factor);
+          console.log('[Place] model scale factor', factor);
+        } catch(_) {}
+      }
+      console.log('[Place] placed at', target.position);
     }
 
     function onXRFrame(t, frame){
