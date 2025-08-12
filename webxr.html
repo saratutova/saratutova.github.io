@@ -7,7 +7,7 @@
   <script>
     // Ensure first log is the build version and capture all logs early
     (function(){
-      window.BUILD_NUMBER = 13; // INCREMENT BEFORE COMMIT
+      window.BUILD_NUMBER = 14; // INCREMENT BEFORE COMMIT
       if (!window.__logBuffer) window.__logBuffer = [];
       const origLog = console.log.bind(console);
       const origWarn = console.warn.bind(console);
@@ -106,11 +106,14 @@
       const forceRaw = url.searchParams.get('forceRaw') === '1';
       const autoPlace = url.searchParams.get('autoPlace') === '1';
       const debugHud = url.searchParams.get('hud') === '1' || url.searchParams.get('debugHud') === '1';
+      const headLock = url.searchParams.get('headlock') === '1' || url.searchParams.get('hl') === '1';
+      const big = url.searchParams.get('big') === '1';
       const sceneEl = document.querySelector('a-scene');
       const reticleEl = document.getElementById('reticle');
       const modelEl = document.getElementById('worldModel');
       var rawCube = null; // Optional raw THREE cube bypassing A-Frame for maximum visibility
       var afCubeEl = null; // A-Frame fallback cube for guaranteed visibility
+      var headLocked = null; // Object fixed to camera for last-resort visibility
       // Log when the GLB finishes loading and optionally force basic materials for visibility
       modelEl.addEventListener('model-loaded', (e) => {
         console.log('[Model] GLB loaded');
@@ -140,7 +143,8 @@
       // Also create a raw THREE cube if requested (bypasses A-Frame entity visibility)
       if (forceRaw) {
         try {
-          const g = new THREE.BoxGeometry(0.4, 0.4, 0.4);
+          const size = big ? 1.2 : 0.4;
+          const g = new THREE.BoxGeometry(size, size, size);
           const mat = new THREE.MeshBasicMaterial({ color: 0xff00ff, opacity: 0.95, transparent: true });
           if (mat.depthTest !== undefined) mat.depthTest = false;
           if (mat.depthWrite !== undefined) mat.depthWrite = false;
@@ -153,7 +157,8 @@
           // Create an A-Frame cube as a second, independent visualization path
           afCubeEl = document.createElement('a-entity');
           afCubeEl.setAttribute('id', 'afCube');
-          afCubeEl.setAttribute('geometry', 'primitive: box; width: 0.6; height: 0.6; depth: 0.6');
+          const afSize = big ? 1.2 : 0.6;
+          afCubeEl.setAttribute('geometry', `primitive: box; width: ${afSize}; height: ${afSize}; depth: ${afSize}`);
           afCubeEl.setAttribute('material', 'color: #ff00ff; shader: flat; opacity: 0.98; side: double');
           afCubeEl.setAttribute('visible', 'false');
           sceneEl.appendChild(afCubeEl);
@@ -196,6 +201,21 @@
             sceneEl.renderer.setAnimationLoop(() => { updateHud(); });
           });
         } catch(_) {}
+      }
+
+      // Create a head-locked cube that sits 0.5m in front of the camera
+      if (headLock) {
+        try {
+          const s = big ? 0.4 : 0.2;
+          const g2 = new THREE.BoxGeometry(s, s, s);
+          const m2 = new THREE.MeshBasicMaterial({ color: 0x00ff88, opacity: 0.98, transparent: true });
+          headLocked = new THREE.Mesh(g2, m2);
+          headLocked.position.set(0, 0, -0.5);
+          headLocked.renderOrder = 9999;
+          m2.depthTest = false; m2.depthWrite = false;
+          sceneEl.camera.add(headLocked);
+          console.log('[Debug] Head-locked cube attached to camera');
+        } catch(_) { console.warn('Head-locked cube creation failed'); }
       }
       const startBtn = document.getElementById('startBtn');
       const copyLogsBtn = document.getElementById('copyLogsBtn');
@@ -261,9 +281,9 @@
           sceneEl.renderer.xr.setSession(session);
           if (startBtn) startBtn.textContent = 'Exit AR';
           // Ensure transparent background in AR
-          if (sceneEl.renderer && sceneEl.renderer.setClearColor) {
+           if (sceneEl.renderer && sceneEl.renderer.setClearColor) {
             sceneEl.renderer.setClearColor(0x000000, 0);
-          }
+           }
           // Ensure in-page console is visible once AR starts
           if (window.eruda && typeof eruda.show === 'function') { try { eruda.show(); } catch(e){} }
           hintEl.textContent = 'AR session started. Move to find a surface.';
