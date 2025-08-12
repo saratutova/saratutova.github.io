@@ -16,7 +16,7 @@
 <body>
   <div id="overlay" style="position:fixed; inset:0; z-index: 20; pointer-events:auto;">
     <div id="hint">Tap Start AR, then Place.</div>
-    <div id="build">xr-min build 3</div>
+    <div id="build">xr-min build 4</div>
     <div id="ui">
       <button id="start">Start AR</button>
       <button id="place" disabled>Place</button>
@@ -34,8 +34,8 @@
     })();
   </script>
 
-  <script src="https://cdn.jsdelivr.net/npm/three@0.152.2/build/three.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/three@0.152.2/examples/js/loaders/GLTFLoader.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.150.1/build/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.150.1/examples/js/loaders/GLTFLoader.js"></script>
 
   <script>
   (async function(){
@@ -46,6 +46,8 @@
     const forceCube = url.searchParams.get('cube') === '1';
     const basicMat = url.searchParams.get('basic') === '1';
     const modelUrl = url.searchParams.get('model') || './models/7579_3K_V2.glb';
+    const useV1 = url.searchParams.get('v1') === '1';
+    const resolvedModel = useV1 ? './models/7579_3K_V1.glb' : modelUrl;
 
     const hint = document.getElementById('hint');
     const startBtn = document.getElementById('start');
@@ -93,7 +95,7 @@
     let model = null; let modelLoaded = false;
     try {
       const loader = new THREE.GLTFLoader();
-      loader.load(modelUrl, (gltf) => {
+      loader.load(resolvedModel, (gltf) => {
         model = gltf.scene || (gltf.scenes && gltf.scenes[0]);
         if (!model) { console.log('[Model] GLB had no scene, fallback cube'); return; }
         if (basicMat) {
@@ -109,7 +111,7 @@
         model.traverse((child)=>{ if (child.material){ child.material.depthTest=false; child.material.depthWrite=false; child.material.transparent=false; child.material.needsUpdate=true; } });
         scene.add(model);
         modelLoaded = true;
-        console.log('[Model] GLB loaded', modelUrl);
+        console.log('[Model] GLB loaded', resolvedModel);
       }, undefined, (err) => { console.log('[Model] load error', String(err)); });
     } catch (e) { console.log('[Model] loader init failed', e); }
 
