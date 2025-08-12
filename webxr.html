@@ -7,7 +7,7 @@
   <script>
     // Ensure first log is the build version and capture all logs early
     (function(){
-      window.BUILD_NUMBER = 17; // INCREMENT BEFORE COMMIT
+      window.BUILD_NUMBER = 18; // INCREMENT BEFORE COMMIT
       if (!window.__logBuffer) window.__logBuffer = [];
       const origLog = console.log.bind(console);
       const origWarn = console.warn.bind(console);
@@ -382,9 +382,8 @@
         if (startBtn) startBtn.textContent = 'Start AR';
       }
 
-      // Update reticle each frame
+      // Update per-frame without overriding A-Frame's renderer loop
       sceneEl.addEventListener('renderstart', () => {
-        // Configure background each frame to ensure settings stick in AR
         if (sceneEl.renderer && sceneEl.renderer.setClearColor) {
           try {
             const col = bgColorParam ? parseInt(bgColorParam, 16) : 0xff0000;
@@ -393,56 +392,57 @@
             sceneEl.renderer.setClearColor(opaqueBg ? 0xff0000 : 0x000000, opaqueBg ? 1 : 0);
           }
         }
-        let onceLogged = false;
-        sceneEl.renderer.setAnimationLoop((timestamp, frame) => {
-          sceneEl.frame = frame;
-          if (verbose && !onceLogged) {
-            onceLogged = true;
-            try {
-              console.log('[Diag] scene children=', sceneEl.object3D.children?.length, 'camera pos=', sceneEl.camera?.position);
-            } catch(_) {}
-          }
-          // Update head-locked follower in front of camera
-          if (headLocked && sceneEl.camera) {
-            try {
-              const cam = sceneEl.camera;
-              const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(cam.quaternion).normalize();
-              const pos = new THREE.Vector3().copy(cam.position).add(forward.multiplyScalar(big ? 0.8 : 0.5));
-              headLocked.position.copy(pos);
-              headLocked.quaternion.copy(cam.quaternion);
-            } catch(_) {}
-          }
-          if (!frame || !hitTestSource || !refSpace) { reticleEl.setAttribute('visible', false); return; }
-          // Update cached viewer pose for use outside this callback
-          try {
-            const vp = frame.getViewerPose(refSpace);
-            if (vp && vp.views && vp.views[0]) {
-              const t = vp.transform;
-              lastViewerPosition.set(t.position.x, t.position.y, t.position.z);
-              lastViewerOrientation.set(t.orientation.x, t.orientation.y, t.orientation.z, t.orientation.w);
-              haveViewerPose = true;
+        try { sceneEl.setAttribute('xr-updater', ''); } catch(_) {}
+      });
+
+      // Component that runs each frame and updates reticle and debug followers
+      try {
+        AFRAME.registerComponent('xr-updater', {
+          tick: function () {
+            const frame = (sceneEl && sceneEl.renderer && sceneEl.renderer.xr) ? sceneEl.renderer.xr.getFrame() : null;
+            if (verbose && !this._onceLogged) {
+              this._onceLogged = true;
+              try { console.log('[Diag] scene children=', sceneEl.object3D.children?.length, 'camera pos=', sceneEl.camera?.position); } catch(_) {}
             }
-          } catch (err) {
-            // ignore; will fallback to camera
-          }
-          const results = frame.getHitTestResults(hitTestSource);
-          if (results && results.length > 0) {
-            const pose = results[0].getPose(refSpace);
-            if (pose) {
-              const mat = new THREE.Matrix4();
-              mat.fromArray(pose.transform.matrix);
-              const o3d = reticleEl.object3D;
-              o3d.matrix.copy(mat);
-              o3d.matrix.decompose(o3d.position, o3d.quaternion, o3d.scale);
-              reticleEl.setAttribute('visible', true);
-              if (placeBtn) placeBtn.classList.add('ok');
+            // Update head-locked follower
+            if (headLocked && sceneEl.camera) {
+              try {
+                const cam = sceneEl.camera;
+                const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(cam.quaternion).normalize();
+                const pos = new THREE.Vector3().copy(cam.position).add(forward.multiplyScalar(big ? 0.8 : 0.5));
+                headLocked.position.copy(pos);
+                headLocked.quaternion.copy(cam.quaternion);
+              } catch(_) {}
             }
-          } else {
+            if (!frame || !hitTestSource || !refSpace) { reticleEl.setAttribute('visible', false); return; }
+            try {
+              const vp = frame.getViewerPose(refSpace);
+              if (vp && vp.views && vp.views[0]) {
+                const t = vp.transform;
+                lastViewerPosition.set(t.position.x, t.position.y, t.position.z);
+                lastViewerOrientation.set(t.orientation.x, t.orientation.y, t.orientation.z, t.orientation.w);
+                haveViewerPose = true;
+              }
+            } catch (_) {}
+            const results = frame.getHitTestResults(hitTestSource);
+            if (results && results.length > 0) {
+              const pose = results[0].getPose(refSpace);
+              if (pose) {
+                const mat = new THREE.Matrix4();
+                mat.fromArray(pose.transform.matrix);
+                const o3d = reticleEl.object3D;
+                o3d.matrix.copy(mat);
+                o3d.matrix.decompose(o3d.position, o3d.quaternion, o3d.scale);
+                reticleEl.setAttribute('visible', true);
+                if (placeBtn) placeBtn.classList.add('ok');
+                return;
+              }
+            }
             reticleEl.setAttribute('visible', false);
             if (placeBtn) placeBtn.classList.remove('ok');
           }
         });
-      });
+      } catch (_) {}
 
       async function placeAtReticle() {
         console.log('[Place] begin. reticleVisible=', reticleEl.getAttribute('visible'), 'haveHitTest=', haveHitTest);
