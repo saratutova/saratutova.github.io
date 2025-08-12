@@ -7,7 +7,7 @@
   <script>
     // Ensure first log is the build version and capture all logs early
     (function(){
-      window.BUILD_NUMBER = 11; // INCREMENT BEFORE COMMIT
+      window.BUILD_NUMBER = 12; // INCREMENT BEFORE COMMIT
       if (!window.__logBuffer) window.__logBuffer = [];
       const origLog = console.log.bind(console);
       const origWarn = console.warn.bind(console);
@@ -109,6 +109,7 @@
       const reticleEl = document.getElementById('reticle');
       const modelEl = document.getElementById('worldModel');
       var rawCube = null; // Optional raw THREE cube bypassing A-Frame for maximum visibility
+      var afCubeEl = null; // A-Frame fallback cube for guaranteed visibility
       // Log when the GLB finishes loading and optionally force basic materials for visibility
       modelEl.addEventListener('model-loaded', (e) => {
         console.log('[Model] GLB loaded');
@@ -148,6 +149,13 @@
           sceneEl.object3D.add(rawCube);
           // Draw raw cube on top to confirm placement visually
           rawCube.renderOrder = 9999;
+          // Create an A-Frame cube as a second, independent visualization path
+          afCubeEl = document.createElement('a-entity');
+          afCubeEl.setAttribute('id', 'afCube');
+          afCubeEl.setAttribute('geometry', 'primitive: box; width: 0.6; height: 0.6; depth: 0.6');
+          afCubeEl.setAttribute('material', 'color: #ff00ff; shader: flat; opacity: 0.95; side: double');
+          afCubeEl.setAttribute('visible', 'false');
+          sceneEl.appendChild(afCubeEl);
           console.log('[Model] forceRaw=1 active: using raw THREE.Mesh cube');
         } catch (e) { console.warn('Create raw cube failed', e); }
       }
@@ -361,6 +369,16 @@
         try { m.position.y += 0.08; } catch(_) {}
         if (forceRaw && rawCube) {
           rawCube.visible = true;
+          // Mirror placement to A-Frame cube as well for maximum compatibility
+          try {
+            if (afCubeEl) {
+              afCubeEl.setAttribute('position', `${m.position.x} ${m.position.y} ${m.position.z}`);
+              const eulerTmp = new THREE.Euler().setFromQuaternion(m.quaternion, 'YXZ');
+              afCubeEl.setAttribute('rotation', `${THREE.MathUtils.radToDeg(eulerTmp.x)} ${THREE.MathUtils.radToDeg(eulerTmp.y)} ${THREE.MathUtils.radToDeg(eulerTmp.z)}`);
+              afCubeEl.setAttribute('visible', 'true');
+              afCubeEl.object3D.updateMatrixWorld(true);
+            }
+          } catch(_) {}
           console.log('[Place] Showing raw cube');
         } else {
           modelEl.setAttribute('visible', true);
@@ -376,6 +394,11 @@
           if (!(forceRaw && rawCube)) {
             modelEl.setAttribute('position', `${m.position.x} ${m.position.y} ${m.position.z}`);
             modelEl.setAttribute('rotation', `${rot.x} ${rot.y} ${rot.z}`);
+          }
+          // Always update AF fallback cube if present
+          if (afCubeEl) {
+            afCubeEl.setAttribute('position', `${m.position.x} ${m.position.y} ${m.position.z}`);
+            afCubeEl.setAttribute('rotation', `${rot.x} ${rot.y} ${rot.z}`);
           }
         } catch (_) {}
         // Auto-rescale model to a reasonable size (skip if forceCube or forceRaw; cubes already sized)
@@ -425,6 +448,7 @@
       function resetPlacement() {
         modelEl.setAttribute('visible', false);
         if (rawCube) { try { rawCube.visible = false; } catch(_) {} }
+        if (afCubeEl) { try { afCubeEl.setAttribute('visible', 'false'); } catch(_) {} }
         anchor = null;
         try {
           if (axesHelper && axesHelper.parent) axesHelper.parent.remove(axesHelper);
