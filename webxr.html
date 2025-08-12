@@ -7,7 +7,7 @@
   <script>
     // Ensure first log is the build version and capture all logs early
     (function(){
-      window.BUILD_NUMBER = 12; // INCREMENT BEFORE COMMIT
+      window.BUILD_NUMBER = 13; // INCREMENT BEFORE COMMIT
       if (!window.__logBuffer) window.__logBuffer = [];
       const origLog = console.log.bind(console);
       const origWarn = console.warn.bind(console);
@@ -105,6 +105,7 @@
       const forceCube = url.searchParams.get('forceCube') === '1';
       const forceRaw = url.searchParams.get('forceRaw') === '1';
       const autoPlace = url.searchParams.get('autoPlace') === '1';
+      const debugHud = url.searchParams.get('hud') === '1' || url.searchParams.get('debugHud') === '1';
       const sceneEl = document.querySelector('a-scene');
       const reticleEl = document.getElementById('reticle');
       const modelEl = document.getElementById('worldModel');
@@ -153,11 +154,48 @@
           afCubeEl = document.createElement('a-entity');
           afCubeEl.setAttribute('id', 'afCube');
           afCubeEl.setAttribute('geometry', 'primitive: box; width: 0.6; height: 0.6; depth: 0.6');
-          afCubeEl.setAttribute('material', 'color: #ff00ff; shader: flat; opacity: 0.95; side: double');
+          afCubeEl.setAttribute('material', 'color: #ff00ff; shader: flat; opacity: 0.98; side: double');
           afCubeEl.setAttribute('visible', 'false');
           sceneEl.appendChild(afCubeEl);
+          afCubeEl.addEventListener('loaded', () => {
+            try {
+              const obj = afCubeEl.getObject3D('mesh') || afCubeEl.object3D;
+              if (obj) {
+                obj.renderOrder = 9999;
+                if (obj.material) {
+                  obj.material.depthTest = false;
+                  obj.material.depthWrite = false;
+                  obj.material.needsUpdate = true;
+                }
+              }
+            } catch(_) {}
+          });
           console.log('[Model] forceRaw=1 active: using raw THREE.Mesh cube');
         } catch (e) { console.warn('Create raw cube failed', e); }
+      }
+
+      // Add a bright HUD plane always in front of the camera for visibility debugging
+      if (debugHud) {
+        try {
+          const hud = document.createElement('a-entity');
+          hud.setAttribute('id', 'hudPlane');
+          hud.setAttribute('geometry', 'primitive: plane; width: 0.25; height: 0.25');
+          hud.setAttribute('material', 'color: #ffffff; shader: flat; opacity: 0.25; side: double');
+          hud.setAttribute('visible', 'true');
+          document.querySelector('a-scene').appendChild(hud);
+          const updateHud = () => {
+            const cam = sceneEl.camera;
+            if (!cam) return;
+            const dir = new THREE.Vector3(0, 0, -1).applyQuaternion(cam.quaternion);
+            const pos = new THREE.Vector3().copy(cam.position).add(dir.multiplyScalar(0.6));
+            hud.setAttribute('position', `${pos.x} ${pos.y} ${pos.z}`);
+            const euler = new THREE.Euler().setFromQuaternion(cam.quaternion, 'YXZ');
+            hud.setAttribute('rotation', `${THREE.MathUtils.radToDeg(euler.x)} ${THREE.MathUtils.radToDeg(euler.y)} ${THREE.MathUtils.radToDeg(euler.z)}`);
+          };
+          sceneEl.addEventListener('renderstart', () => {
+            sceneEl.renderer.setAnimationLoop(() => { updateHud(); });
+          });
+        } catch(_) {}
       }
       const startBtn = document.getElementById('startBtn');
       const copyLogsBtn = document.getElementById('copyLogsBtn');
@@ -351,7 +389,7 @@
           // Fallback: place ~2m in front of last known viewer pose, else camera
           if (haveViewerPose) {
             const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(lastViewerOrientation).normalize();
-            const pos = new THREE.Vector3().copy(lastViewerPosition).add(forward.multiplyScalar(2));
+            const pos = new THREE.Vector3().copy(lastViewerPosition).add(forward.multiplyScalar(1));
             m.position.copy(pos);
             m.quaternion.copy(lastViewerOrientation);
             console.log('[Place] Using cached viewer pose', m.position);
@@ -359,7 +397,7 @@
             const cam = sceneEl.camera;
             if (!cam) { console.warn('[Place] No viewer pose and no camera'); return; }
             const dir = new THREE.Vector3(0, 0, -1).applyQuaternion(cam.quaternion);
-            const pos = new THREE.Vector3().copy(cam.position).add(dir.multiplyScalar(2));
+            const pos = new THREE.Vector3().copy(cam.position).add(dir.multiplyScalar(1));
             m.position.copy(pos);
             m.quaternion.copy(cam.quaternion);
             console.log('[Place] Using camera fallback', m.position);
