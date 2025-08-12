@@ -7,7 +7,7 @@
   <script>
     // Ensure first log is the build version and capture all logs early
     (function(){
-      window.BUILD_NUMBER = 20; // INCREMENT BEFORE COMMIT
+      window.BUILD_NUMBER = 21; // INCREMENT BEFORE COMMIT
       if (!window.__logBuffer) window.__logBuffer = [];
       const origLog = console.log.bind(console);
       const origWarn = console.warn.bind(console);
@@ -115,6 +115,9 @@
       const fullQuad = url.searchParams.get('fg') === '1' || url.searchParams.get('full') === '1';
       const domBox = url.searchParams.get('dom') === '1';
       const glClear = url.searchParams.get('glclear') === '1';
+      const noOverlay = url.searchParams.get('noOverlay') === '1' || url.searchParams.get('nool') === '1';
+      const wire = url.searchParams.get('wire') === '1';
+      const noAlpha = url.searchParams.get('noAlpha') === '1';
       const sceneEl = document.querySelector('a-scene');
       const reticleEl = document.getElementById('reticle');
       const modelEl = document.getElementById('worldModel');
@@ -123,6 +126,7 @@
       var headLocked = null; // Object fixed to camera for last-resort visibility (follows camera)
       var alwaysBoxEl = null; // Always-visible A-Frame box at fixed world pose
       var fullQuadMesh = null; // Large plane in front of camera to prove 3D draw path
+      var gridHelper = null; // Wire grid for visibility
       // Log when the GLB finishes loading and optionally force basic materials for visibility
       modelEl.addEventListener('model-loaded', (e) => {
         console.log('[Model] GLB loaded');
@@ -312,22 +316,22 @@
           // Request local-floor if available
           required.push('local-floor');
           const optional = ['anchors'];
-          if (!safeMode) {
+          if (!safeMode && !noOverlay) {
             optional.push('dom-overlay');
           }
           const sessionInit = {
             requiredFeatures: required,
             optionalFeatures: optional,
-            domOverlay: safeMode ? undefined : { root: overlay }
+            domOverlay: (safeMode || noOverlay) ? undefined : { root: overlay }
           };
           console.log('[WebXR] sessionInit', sessionInit);
           const session = await navigator.xr.requestSession('immersive-ar', sessionInit);
           sceneEl.renderer.xr.setSession(session);
           if (startBtn) startBtn.textContent = 'Exit AR';
           // Ensure transparent background in AR
-           if (sceneEl.renderer && sceneEl.renderer.setClearColor) {
-            sceneEl.renderer.setClearColor(0x000000, 0);
-           }
+          if (sceneEl.renderer && sceneEl.renderer.setClearColor) {
+            sceneEl.renderer.setClearColor(0x000000, noAlpha ? 1 : 0);
+          }
           // Ensure in-page console is visible once AR starts
           if (window.eruda && typeof eruda.show === 'function') { try { eruda.show(); } catch(e){} }
           hintEl.textContent = 'AR session started. Move to find a surface.';
@@ -423,6 +427,16 @@
             console.log('[Debug] Full-quad created');
           } catch(_) { console.warn('Full-quad creation failed'); }
         }
+        if (wire && !gridHelper) {
+          try {
+            gridHelper = new THREE.GridHelper(2, 20, 0x00ff00, 0x00ff00);
+            gridHelper.material.depthTest = false;
+            gridHelper.material.depthWrite = false;
+            gridHelper.renderOrder = 9999;
+            sceneEl.object3D.add(gridHelper);
+            console.log('[Debug] Grid helper created');
+          } catch(_) {}
+        }
         try { sceneEl.setAttribute('xr-updater', ''); } catch(_) {}
       });
 
@@ -462,6 +476,14 @@
                 const pos = new THREE.Vector3().copy(cam.position).add(forward.multiplyScalar(0.4));
                 fullQuadMesh.position.copy(pos);
                 fullQuadMesh.quaternion.copy(cam.quaternion);
+              } catch(_) {}
+            }
+            // Keep grid under the camera
+            if (gridHelper && sceneEl.camera) {
+              try {
+                const cam = sceneEl.camera;
+                gridHelper.position.set(cam.position.x, cam.position.y - 0.2, cam.position.z - 0.8);
+                gridHelper.quaternion.copy(cam.quaternion);
               } catch(_) {}
             }
             if (!frame || !hitTestSource || !refSpace) { reticleEl.setAttribute('visible', false); return; }
