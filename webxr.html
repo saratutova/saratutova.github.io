@@ -7,7 +7,7 @@
   <script>
     // Ensure first log is the build version and capture all logs early
     (function(){
-      window.BUILD_NUMBER = 23; // INCREMENT BEFORE COMMIT
+      window.BUILD_NUMBER = 24; // INCREMENT BEFORE COMMIT
       if (!window.__logBuffer) window.__logBuffer = [];
       const origLog = console.log.bind(console);
       const origWarn = console.warn.bind(console);
@@ -101,6 +101,14 @@
       }
       const url = new URL(window.location.href);
       const safeMode = url.searchParams.get('safemode') === '1' || url.searchParams.get('safe') === '1';
+      const engineThree = url.searchParams.get('three') === '1' || url.searchParams.get('engine') === 'three';
+      if (engineThree) {
+        try {
+          const q = window.location.search || '';
+          window.location.replace('xr-min.html' + q);
+          return;
+        } catch(_) {}
+      }
       const forceBasic = url.searchParams.get('forceBasic') === '1';
       const forceCube = url.searchParams.get('forceCube') === '1';
       const forceRaw = url.searchParams.get('forceRaw') === '1';
