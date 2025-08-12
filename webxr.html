@@ -7,7 +7,7 @@
   <script>
     // Ensure first log is the build version and capture all logs early
     (function(){
-      window.BUILD_NUMBER = 15; // INCREMENT BEFORE COMMIT
+      window.BUILD_NUMBER = 16; // INCREMENT BEFORE COMMIT
       if (!window.__logBuffer) window.__logBuffer = [];
       const origLog = console.log.bind(console);
       const origWarn = console.warn.bind(console);
@@ -108,12 +108,14 @@
       const debugHud = url.searchParams.get('hud') === '1' || url.searchParams.get('debugHud') === '1';
       const headLock = url.searchParams.get('headlock') === '1' || url.searchParams.get('hl') === '1';
       const big = url.searchParams.get('big') === '1';
+      const opaqueBg = url.searchParams.get('opaque') === '1';
+      const bgColorParam = url.searchParams.get('bg'); // hex like ff0000
       const sceneEl = document.querySelector('a-scene');
       const reticleEl = document.getElementById('reticle');
       const modelEl = document.getElementById('worldModel');
       var rawCube = null; // Optional raw THREE cube bypassing A-Frame for maximum visibility
       var afCubeEl = null; // A-Frame fallback cube for guaranteed visibility
-      var headLocked = null; // Object fixed to camera for last-resort visibility
+      var headLocked = null; // Object fixed to camera for last-resort visibility (follows camera)
       // Log when the GLB finishes loading and optionally force basic materials for visibility
       modelEl.addEventListener('model-loaded', (e) => {
         console.log('[Model] GLB loaded');
@@ -203,18 +205,18 @@
         } catch(_) {}
       }
 
-      // Create a head-locked cube that sits 0.5m in front of the camera
+      // Create a head-locked cube that sits in front of the camera (follows each frame)
       if (headLock) {
         try {
-          const s = big ? 0.4 : 0.2;
+          const s = big ? 0.5 : 0.25;
           const g2 = new THREE.BoxGeometry(s, s, s);
           const m2 = new THREE.MeshBasicMaterial({ color: 0x00ff88, opacity: 0.98, transparent: true });
           headLocked = new THREE.Mesh(g2, m2);
-          headLocked.position.set(0, 0, -0.5);
+          headLocked.visible = true;
           headLocked.renderOrder = 9999;
           m2.depthTest = false; m2.depthWrite = false;
-          sceneEl.camera.add(headLocked);
-          console.log('[Debug] Head-locked cube attached to camera');
+          sceneEl.object3D.add(headLocked);
+          console.log('[Debug] Head-locked cube created (follows camera)');
         } catch(_) { console.warn('Head-locked cube creation failed'); }
       }
       const startBtn = document.getElementById('startBtn');
@@ -358,12 +360,27 @@
 
       // Update reticle each frame
       sceneEl.addEventListener('renderstart', () => {
-        // Keep renderer alpha 0 during AR so the camera feed is visible
+        // Configure background each frame to ensure settings stick in AR
         if (sceneEl.renderer && sceneEl.renderer.setClearColor) {
-          sceneEl.renderer.setClearColor(0x000000, 0);
+          try {
+            const col = bgColorParam ? parseInt(bgColorParam, 16) : 0xff0000;
+            sceneEl.renderer.setClearColor(opaqueBg ? col : 0x000000, opaqueBg ? 1 : 0);
+          } catch(_) {
+            sceneEl.renderer.setClearColor(opaqueBg ? 0xff0000 : 0x000000, opaqueBg ? 1 : 0);
+          }
         }
         sceneEl.renderer.setAnimationLoop((timestamp, frame) => {
           sceneEl.frame = frame;
+          // Update head-locked follower in front of camera
+          if (headLocked && sceneEl.camera) {
+            try {
+              const cam = sceneEl.camera;
+              const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(cam.quaternion).normalize();
+              const pos = new THREE.Vector3().copy(cam.position).add(forward.multiplyScalar(big ? 0.8 : 0.5));
+              headLocked.position.copy(pos);
+              headLocked.quaternion.copy(cam.quaternion);
+            } catch(_) {}
+          }
           if (!frame || !hitTestSource || !refSpace) { reticleEl.setAttribute('visible', false); return; }
           // Update cached viewer pose for use outside this callback
           try {
