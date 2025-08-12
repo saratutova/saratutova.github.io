@@ -14,13 +14,15 @@
   </style>
 </head>
 <body>
-  <div id="hint">Tap Start AR, then Place.</div>
-  <div id="build">xr-min build 1</div>
-  <div id="ui">
-    <button id="start">Start AR</button>
-    <button id="place" disabled>Place</button>
-    <button id="exit" disabled>Exit</button>
-    <button id="logs">Download logs</button>
+  <div id="overlay" style="position:fixed; inset:0; z-index: 20; pointer-events:auto;">
+    <div id="hint">Tap Start AR, then Place.</div>
+    <div id="build">xr-min build 2</div>
+    <div id="ui">
+      <button id="start">Start AR</button>
+      <button id="place" disabled>Place</button>
+      <button id="exit" disabled>Exit</button>
+      <button id="logs">Download logs</button>
+    </div>
   </div>
 
   <script>
@@ -48,6 +50,7 @@
     const exitBtn = document.getElementById('exit');
     const logsBtn = document.getElementById('logs');
 
+    const overlay = document.getElementById('overlay');
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera();
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: !opaque });
@@ -79,13 +82,15 @@
     cube.visible = false; cube.renderOrder = 9999; cube.material.depthTest = false; cube.material.depthWrite = false;
     scene.add(cube);
 
-    let xrSession = null; let refSpace = null; let viewerSpace = null; let hitSource = null;
+    let xrSession = null; let refSpace = null; let viewerSpace = null; let hitSource = null; let autoPlaced = false;
 
     async function startAR(){
       if (!navigator.xr) { alert('WebXR not supported'); return; }
       const supported = await navigator.xr.isSessionSupported('immersive-ar');
       if (!supported) { alert('immersive-ar not supported'); return; }
-      const session = await navigator.xr.requestSession('immersive-ar', { requiredFeatures: ['hit-test', 'local-floor'] });
+      const sessionInit = { requiredFeatures: ['hit-test', 'local-floor'], optionalFeatures: ['dom-overlay'], domOverlay: { root: overlay } };
+      console.log('[XR] sessionInit', sessionInit);
+      const session = await navigator.xr.requestSession('immersive-ar', sessionInit);
       xrSession = session; renderer.xr.setSession(session);
       exitBtn.disabled = false; startBtn.textContent = 'AR Running';
       hint.textContent = 'Move to find surface';
@@ -95,6 +100,11 @@
       viewerSpace = await session.requestReferenceSpace('viewer');
       hitSource = await session.requestHitTestSource({ space: viewerSpace });
       placeBtn.disabled = false;
+      autoPlaced = false;
+      if (autoPlace) {
+        // Fallback auto-place using camera after 1.5s if no hit yet
+        setTimeout(()=>{ try { if (!autoPlaced && renderer.xr.isPresenting) { place(); autoPlaced = true; console.log('[AutoPlace] camera fallback'); } } catch(_){} }, 1500);
+      }
     }
 
     function place(){
@@ -119,6 +129,7 @@
           const hitPose = results[0].getPose(refSpace);
           reticle.visible = true; reticle.position.set(hitPose.transform.position.x, hitPose.transform.position.y, hitPose.transform.position.z);
           reticle.quaternion.set(hitPose.transform.orientation.x, hitPose.transform.orientation.y, hitPose.transform.orientation.z, hitPose.transform.orientation.w);
+          if (autoPlace && !autoPlaced) { try { place(); autoPlaced = true; console.log('[AutoPlace] via reticle'); } catch(_){} }
         } else {
           reticle.visible = false;
         }
