@@ -7,7 +7,7 @@
   <script>
     // Ensure first log is the build version and capture all logs early
     (function(){
-      window.BUILD_NUMBER = 19; // INCREMENT BEFORE COMMIT
+      window.BUILD_NUMBER = 20; // INCREMENT BEFORE COMMIT
       if (!window.__logBuffer) window.__logBuffer = [];
       const origLog = console.log.bind(console);
       const origWarn = console.warn.bind(console);
@@ -154,12 +154,13 @@
         try {
           const size = big ? 1.2 : 0.4;
           const g = new THREE.BoxGeometry(size, size, size);
-          const mat = new THREE.MeshBasicMaterial({ color: 0xff00ff, opacity: 0.95, transparent: true });
+          const mat = new THREE.MeshBasicMaterial({ color: 0xff00ff });
           if (mat.depthTest !== undefined) mat.depthTest = false;
           if (mat.depthWrite !== undefined) mat.depthWrite = false;
           if (mat.side !== undefined) mat.side = THREE.DoubleSide;
           rawCube = new THREE.Mesh(g, mat);
           rawCube.visible = false;
+          try { rawCube.layers.set(0); } catch(_) {}
           sceneEl.object3D.add(rawCube);
           // Draw raw cube on top to confirm placement visually
           rawCube.renderOrder = 9999;
@@ -168,7 +169,7 @@
           afCubeEl.setAttribute('id', 'afCube');
           const afSize = big ? 1.2 : 0.6;
           afCubeEl.setAttribute('geometry', `primitive: box; width: ${afSize}; height: ${afSize}; depth: ${afSize}`);
-          afCubeEl.setAttribute('material', 'color: #ff00ff; shader: flat; opacity: 0.98; side: double');
+          afCubeEl.setAttribute('material', 'color: #ff00ff; shader: flat; side: double');
           afCubeEl.setAttribute('visible', 'false');
           sceneEl.appendChild(afCubeEl);
           afCubeEl.addEventListener('loaded', () => {
@@ -176,9 +177,11 @@
               const obj = afCubeEl.getObject3D('mesh') || afCubeEl.object3D;
               if (obj) {
                 obj.renderOrder = 9999;
+                try { obj.layers.set(0); } catch(_) {}
                 if (obj.material) {
                   obj.material.depthTest = false;
                   obj.material.depthWrite = false;
+                  obj.material.transparent = false;
                   obj.material.needsUpdate = true;
                 }
               }
@@ -194,7 +197,7 @@
           const hud = document.createElement('a-entity');
           hud.setAttribute('id', 'hudPlane');
           hud.setAttribute('geometry', 'primitive: plane; width: 0.25; height: 0.25');
-          hud.setAttribute('material', 'color: #ffffff; shader: flat; opacity: 0.25; side: double');
+          hud.setAttribute('material', 'color: #ffffff; shader: flat; side: double');
           hud.setAttribute('visible', 'true');
           document.querySelector('a-scene').appendChild(hud);
           const updateHud = () => {
@@ -248,11 +251,12 @@
         try {
           const s = big ? 0.5 : 0.25;
           const g2 = new THREE.BoxGeometry(s, s, s);
-          const m2 = new THREE.MeshBasicMaterial({ color: 0x00ff88, opacity: 0.98, transparent: true });
+          const m2 = new THREE.MeshBasicMaterial({ color: 0x00ff88 });
           headLocked = new THREE.Mesh(g2, m2);
           headLocked.visible = true;
           headLocked.renderOrder = 9999;
           m2.depthTest = false; m2.depthWrite = false;
+          try { headLocked.layers.set(0); } catch(_) {}
           sceneEl.object3D.add(headLocked);
           console.log('[Debug] Head-locked cube created (follows camera)');
         } catch(_) { console.warn('Head-locked cube creation failed'); }
@@ -410,10 +414,11 @@
         if (fullQuad && !fullQuadMesh) {
           try {
             const geom = new THREE.PlaneGeometry(big ? 1.2 : 0.8, big ? 1.2 : 0.8);
-            const mat = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+          const mat = new THREE.MeshBasicMaterial({ color: 0xff0000 });
             mat.depthTest = false; mat.depthWrite = false;
             fullQuadMesh = new THREE.Mesh(geom, mat);
             fullQuadMesh.renderOrder = 9999;
+          try { fullQuadMesh.layers.set(0); } catch(_) {}
             sceneEl.object3D.add(fullQuadMesh);
             console.log('[Debug] Full-quad created');
           } catch(_) { console.warn('Full-quad creation failed'); }
