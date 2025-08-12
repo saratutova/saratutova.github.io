@@ -7,7 +7,7 @@
   <script>
     // Ensure first log is the build version and capture all logs early
     (function(){
-      window.BUILD_NUMBER = 16; // INCREMENT BEFORE COMMIT
+      window.BUILD_NUMBER = 17; // INCREMENT BEFORE COMMIT
       if (!window.__logBuffer) window.__logBuffer = [];
       const origLog = console.log.bind(console);
       const origWarn = console.warn.bind(console);
@@ -110,12 +110,15 @@
       const big = url.searchParams.get('big') === '1';
       const opaqueBg = url.searchParams.get('opaque') === '1';
       const bgColorParam = url.searchParams.get('bg'); // hex like ff0000
+      const alwaysBox = url.searchParams.get('ab') === '1' || url.searchParams.get('always') === '1';
+      const verbose = url.searchParams.get('diag') === '1' || url.searchParams.get('v') === '1';
       const sceneEl = document.querySelector('a-scene');
       const reticleEl = document.getElementById('reticle');
       const modelEl = document.getElementById('worldModel');
       var rawCube = null; // Optional raw THREE cube bypassing A-Frame for maximum visibility
       var afCubeEl = null; // A-Frame fallback cube for guaranteed visibility
       var headLocked = null; // Object fixed to camera for last-resort visibility (follows camera)
+      var alwaysBoxEl = null; // Always-visible A-Frame box at fixed world pose
       // Log when the GLB finishes loading and optionally force basic materials for visibility
       modelEl.addEventListener('model-loaded', (e) => {
         console.log('[Model] GLB loaded');
@@ -203,6 +206,27 @@
             sceneEl.renderer.setAnimationLoop(() => { updateHud(); });
           });
         } catch(_) {}
+      }
+
+      // Create an always-visible A-Frame box at a fixed world pose to sanity-check rendering
+      if (alwaysBox) {
+        try {
+          alwaysBoxEl = document.createElement('a-entity');
+          const s = big ? 0.8 : 0.5;
+          alwaysBoxEl.setAttribute('id', 'alwaysBox');
+          alwaysBoxEl.setAttribute('geometry', `primitive: box; width: ${s}; height: ${s}; depth: ${s}`);
+          alwaysBoxEl.setAttribute('material', 'color: #ff0000; shader: flat; opacity: 1; side: double');
+          alwaysBoxEl.setAttribute('position', '0 1 -1');
+          alwaysBoxEl.setAttribute('visible', 'true');
+          document.querySelector('a-scene').appendChild(alwaysBoxEl);
+          alwaysBoxEl.addEventListener('loaded', ()=>{
+            try {
+              const obj = alwaysBoxEl.getObject3D('mesh') || alwaysBoxEl.object3D;
+              if (obj && obj.material){ obj.material.depthTest=false; obj.material.depthWrite=false; obj.renderOrder=9999; obj.material.needsUpdate=true; }
+            } catch(_){}
+          });
+          console.log('[Debug] Always-visible box created');
+        } catch(_) { console.warn('Always box creation failed'); }
       }
 
       // Create a head-locked cube that sits in front of the camera (follows each frame)
@@ -369,8 +393,15 @@
             sceneEl.renderer.setClearColor(opaqueBg ? 0xff0000 : 0x000000, opaqueBg ? 1 : 0);
           }
         }
+        let onceLogged = false;
         sceneEl.renderer.setAnimationLoop((timestamp, frame) => {
           sceneEl.frame = frame;
+          if (verbose && !onceLogged) {
+            onceLogged = true;
+            try {
+              console.log('[Diag] scene children=', sceneEl.object3D.children?.length, 'camera pos=', sceneEl.camera?.position);
+            } catch(_) {}
+          }
           // Update head-locked follower in front of camera
           if (headLocked && sceneEl.camera) {
             try {
