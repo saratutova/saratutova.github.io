@@ -7,7 +7,7 @@
   <script>
     // Ensure first log is the build version and capture all logs early
     (function(){
-      window.BUILD_NUMBER = 10; // INCREMENT BEFORE COMMIT
+      window.BUILD_NUMBER = 11; // INCREMENT BEFORE COMMIT
       if (!window.__logBuffer) window.__logBuffer = [];
       const origLog = console.log.bind(console);
       const origWarn = console.warn.bind(console);
@@ -78,8 +78,8 @@
 
     <!-- Reticle -->
     <a-entity id="reticle" visible="false"
-      geometry="primitive: ring; radiusInner: 0.07; radiusOuter: 0.08"
-      material="color: #00FFAA; shader: flat; opacity: 0.9"
+      geometry="primitive: ring; radiusInner: 0.12; radiusOuter: 0.14"
+      material="color: #00FFAA; shader: flat; opacity: 0.95"
       rotation="-90 0 0"></a-entity>
 
     <!-- Model to place (scale 1). glTF is attached via JS unless forceCube=1 -->
@@ -104,6 +104,7 @@
       const forceBasic = url.searchParams.get('forceBasic') === '1';
       const forceCube = url.searchParams.get('forceCube') === '1';
       const forceRaw = url.searchParams.get('forceRaw') === '1';
+      const autoPlace = url.searchParams.get('autoPlace') === '1';
       const sceneEl = document.querySelector('a-scene');
       const reticleEl = document.getElementById('reticle');
       const modelEl = document.getElementById('worldModel');
@@ -145,6 +146,8 @@
           rawCube = new THREE.Mesh(g, mat);
           rawCube.visible = false;
           sceneEl.object3D.add(rawCube);
+          // Draw raw cube on top to confirm placement visually
+          rawCube.renderOrder = 9999;
           console.log('[Model] forceRaw=1 active: using raw THREE.Mesh cube');
         } catch (e) { console.warn('Create raw cube failed', e); }
       }
@@ -259,6 +262,10 @@
           resetBtn.disabled = false;
           console.log('[WebXR] Hit-test ready. Buttons enabled.');
           hintEl.textContent = 'Move to find a surface, then tap Place.';
+          // Optionally auto-place once when a hit is available
+          if (autoPlace) {
+            setTimeout(() => { try { placeAtReticle(); } catch(_) {} }, 200);
+          }
         } catch (e) {
           console.warn('Hit-test not available', e);
           haveHitTest = false;
@@ -351,7 +358,7 @@
           }
         }
         // Nudge up slightly to avoid z-fighting with the detected plane
-        try { m.position.y += 0.05; } catch(_) {}
+        try { m.position.y += 0.08; } catch(_) {}
         if (forceRaw && rawCube) {
           rawCube.visible = true;
           console.log('[Place] Showing raw cube');
@@ -391,7 +398,7 @@
         // Add/update bright debug helpers to make placement undeniably visible
         try {
           if (!axesHelper) {
-            axesHelper = new THREE.AxesHelper(0.4);
+            axesHelper = new THREE.AxesHelper(0.5);
             const mh = axesHelper.material; // material is array-like on AxesHelper; guard below
             if (mh && mh.depthTest !== undefined) mh.depthTest = false;
             axesHelper.renderOrder = 9999;
