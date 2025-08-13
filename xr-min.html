@@ -272,13 +272,13 @@
       target.position.y += 0.05;
       target.visible = true;
       if (target === model) {
+        // Keep model at authoring scale (1 unit = 1 meter). Optional override via ?scale=FLOAT
         try {
-          const bbox = new THREE.Box3().setFromObject(model);
-          const size = new THREE.Vector3(); bbox.getSize(size);
-          const maxDim = Math.max(size.x, size.y, size.z) || 1;
-          const factor = Math.min(Math.max(0.05, 0.6 / maxDim), 5);
-          model.scale.setScalar(factor);
-          console.log('[Place] model scale factor', factor);
+          const sp = url.searchParams.get('scale');
+          if (sp != null) {
+            const sf = parseFloat(sp);
+            if (Number.isFinite(sf) && sf > 0) { model.scale.setScalar(sf); console.log('[Place] applied scale param', sf); }
+          }
         } catch(_) {}
       }
       console.log('[Place] placed at', target.position);
