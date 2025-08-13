@@ -16,7 +16,7 @@
 <body>
   <div id="overlay" style="position:fixed; inset:0; z-index: 20; pointer-events:auto;">
     <div id="hint">Tap Start AR, then Place.</div>
-    <div id="build">xr-min build 6</div>
+    <div id="build">xr-min build 7</div>
     <div id="ui">
       <button id="start">Start AR</button>
       <button id="place" disabled>Place</button>
@@ -94,24 +94,60 @@
     let model = null; let modelLoaded = false;
     try {
       let loader = null;
-      try {
-        // First try ESM loader (works when the CDN can resolve bare specifiers)
-        const loaderModule = await import('https://cdn.jsdelivr.net/npm/three@0.150.1/examples/jsm/loaders/GLTFLoader.js');
-        const GLTFLoader = loaderModule.GLTFLoader || loaderModule.default;
-        loader = new GLTFLoader();
-      } catch (esmError) {
-        // Fallback to UMD loader attached to global THREE
-        if (!THREE.GLTFLoader) {
-          await new Promise((resolve, reject) => {
-            const s = document.createElement('script');
-            s.src = 'https://cdn.jsdelivr.net/npm/three@0.150.1/examples/js/loaders/GLTFLoader.js';
-            s.onload = resolve;
-            s.onerror = reject;
-            document.head.appendChild(s);
-          });
+
+      async function tryEsm(url) {
+        try {
+          const mod = await import(url);
+          console.log('[Model] ESM loader loaded', url);
+          return mod.GLTFLoader || mod.default;
+        } catch (err) {
+          console.log('[Model] ESM loader failed', url, (err && (err.message || String(err))));
+          return null;
         }
-        loader = new THREE.GLTFLoader();
       }
+
+      async function tryUmd(url) {
+        return new Promise((resolve) => {
+          const script = document.createElement('script');
+          script.src = url;
+          script.async = true;
+          script.crossOrigin = 'anonymous';
+          script.onload = () => { console.log('[Model] UMD loader loaded', url); resolve(true); };
+          script.onerror = () => { console.log('[Model] UMD loader failed', url); resolve(false); };
+          document.head.appendChild(script);
+          setTimeout(() => resolve(false), 12000);
+        });
+      }
+
+      // Attempt multiple sources in order
+      const esmUrls = [
+        'https://cdn.jsdelivr.net/npm/three@0.150.1/examples/jsm/loaders/GLTFLoader.js',
+        'https://unpkg.com/three@0.150.1/examples/jsm/loaders/GLTFLoader.js'
+      ];
+      const umdUrls = [
+        'https://cdn.jsdelivr.net/npm/three@0.150.1/examples/js/loaders/GLTFLoader.js',
+        'https://unpkg.com/three@0.150.1/examples/js/loaders/GLTFLoader.js',
+        'https://cdnjs.cloudflare.com/ajax/libs/three.js/r150/examples/js/loaders/GLTFLoader.min.js'
+      ];
+
+      // Try ESM first
+      for (const url of esmUrls) {
+        const GLTFLoaderCtor = await tryEsm(url);
+        if (GLTFLoaderCtor) { loader = new GLTFLoaderCtor(); break; }
+      }
+
+      // Fallback to UMD if needed
+      if (!loader) {
+        if (!THREE.GLTFLoader) {
+          for (const url of umdUrls) {
+            const ok = await tryUmd(url);
+            if (ok && THREE.GLTFLoader) break;
+          }
+        }
+        if (THREE.GLTFLoader) loader = new THREE.GLTFLoader();
+      }
+
+      if (!loader) throw new Error('GLTFLoader could not be initialized from any CDN');
 
       loader.load(resolvedModel, (gltf) => {
         model = gltf.scene || (gltf.scenes && gltf.scenes[0]);
