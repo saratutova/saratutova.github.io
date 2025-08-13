@@ -16,7 +16,7 @@
 <body>
   <div id="overlay" style="position:fixed; inset:0; z-index: 20; pointer-events:auto;">
     <div id="hint">Tap Start AR, then Place.</div>
-    <div id="build">xr-min build 7</div>
+    <div id="build">xr-min build 8</div>
     <div id="ui">
       <button id="start">Start AR</button>
       <button id="place" disabled>Place</button>
@@ -35,6 +35,9 @@
   </script>
 
   <script src="https://cdn.jsdelivr.net/npm/three@0.150.1/build/three.min.js"></script>
+  <script>
+    // A-Frame is only loaded if we need the fallback; do not include by default to keep page light
+  </script>
 
   <script>
   (async function(){
@@ -92,6 +95,68 @@
 
     // Load GLB model by default
     let model = null; let modelLoaded = false;
+
+    async function loadScript(url) {
+      return new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = url; s.async = true; s.crossOrigin = 'anonymous';
+        s.onload = resolve; s.onerror = reject; document.head.appendChild(s);
+      });
+    }
+
+    async function tryAframeFallbackLoader(glbUrl) {
+      try {
+        if (!window.AFRAME) {
+          await loadScript('https://aframe.io/releases/1.4.0/aframe.min.js');
+          console.log('[Model] A-Frame loaded for fallback');
+        }
+        const afScene = document.createElement('a-scene');
+        afScene.setAttribute('embedded', '');
+        afScene.style.cssText = 'position:fixed;left:-9999px;top:-9999px;width:1px;height:1px;opacity:0;pointer-events:none;';
+        const assets = document.createElement('a-assets');
+        const asset = document.createElement('a-asset-item');
+        asset.setAttribute('id', 'fallbackModelAsset');
+        asset.setAttribute('src', glbUrl);
+        const entity = document.createElement('a-entity');
+        entity.setAttribute('id', 'fallbackModelEntity');
+        entity.setAttribute('gltf-model', '#fallbackModelAsset');
+        entity.setAttribute('visible', 'false');
+        assets.appendChild(asset); afScene.appendChild(assets); afScene.appendChild(entity);
+        document.body.appendChild(afScene);
+        return await new Promise((resolve) => {
+          let settled = false;
+          const done = (ok) => { if (settled) return; settled = true; resolve(ok); };
+          entity.addEventListener('model-loaded', () => {
+            try {
+              const src = entity.getObject3D && entity.getObject3D('mesh');
+              if (!src) { console.log('[Model] A-Frame fallback: no mesh on entity'); done(false); return; }
+              const clone = src.clone(true);
+              model = clone;
+              if (basicMat) {
+                model.traverse((child) => {
+                  if (child.isMesh && child.material) {
+                    const map = child.material.map || null;
+                    child.material = new THREE.MeshBasicMaterial({ color: 0xffffff, map });
+                  }
+                });
+              }
+              model.visible = false; model.renderOrder = 9999;
+              model.traverse((child)=>{ if (child.material){ child.material.depthTest=false; child.material.depthWrite=false; child.material.transparent=false; child.material.needsUpdate=true; } });
+              scene.add(model);
+              modelLoaded = true;
+              console.log('[Model] GLB loaded via A-Frame fallback', glbUrl);
+              done(true);
+            } catch (err) { console.log('[Model] A-Frame fallback failed after load', err); done(false); }
+          }, { once: true });
+          entity.addEventListener('model-error', (e) => { console.log('[Model] A-Frame fallback model-error', e && e.detail); done(false); }, { once: true });
+          // Safety timeout
+          setTimeout(() => done(false), 15000);
+        });
+      } catch (err) {
+        console.log('[Model] A-Frame fallback init failed', err);
+        return false;
+      }
+    }
     try {
       let loader = null;
 
@@ -166,8 +231,16 @@
         scene.add(model);
         modelLoaded = true;
         console.log('[Model] GLB loaded ' + resolvedModel);
-      }, undefined, (err) => { console.log('[Model] load error ' + String(err)); });
-    } catch (e) { console.log('[Model] loader init failed ' + (e && (e.message || String(e)))); }
+      }, undefined, async (err) => {
+        console.log('[Model] load error ' + String(err));
+        // Try A-Frame fallback if network blocked GLTFLoader path
+        try { if (!modelLoaded) await tryAframeFallbackLoader(resolvedModel); } catch(_) {}
+      });
+    } catch (e) {
+      console.log('[Model] loader init failed ' + (e && (e.message || String(e))));
+      // Try A-Frame fallback loader as a last resort
+      try { if (!modelLoaded) await tryAframeFallbackLoader(resolvedModel); } catch(_) {}
+    }
 
     let xrSession = null; let refSpace = null; let viewerSpace = null; let hitSource = null; let autoPlaced = false;
 
