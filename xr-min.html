@@ -16,7 +16,7 @@
 <body>
   <div id="overlay" style="position:fixed; inset:0; z-index: 20; pointer-events:auto;">
     <div id="hint">Tap Start AR, then Place.</div>
-    <div id="build">xr-min build 5</div>
+    <div id="build">xr-min build 6</div>
     <div id="ui">
       <button id="start">Start AR</button>
       <button id="place" disabled>Place</button>
@@ -93,10 +93,26 @@
     // Load GLB model by default
     let model = null; let modelLoaded = false;
     try {
-      // Lazy-load GLTFLoader to avoid module resolution issues on some devices
-      const loaderModule = await import('https://cdn.jsdelivr.net/npm/three@0.150.1/examples/jsm/loaders/GLTFLoader.js');
-      const GLTFLoader = loaderModule.GLTFLoader || loaderModule.default;
-      const loader = new GLTFLoader();
+      let loader = null;
+      try {
+        // First try ESM loader (works when the CDN can resolve bare specifiers)
+        const loaderModule = await import('https://cdn.jsdelivr.net/npm/three@0.150.1/examples/jsm/loaders/GLTFLoader.js');
+        const GLTFLoader = loaderModule.GLTFLoader || loaderModule.default;
+        loader = new GLTFLoader();
+      } catch (esmError) {
+        // Fallback to UMD loader attached to global THREE
+        if (!THREE.GLTFLoader) {
+          await new Promise((resolve, reject) => {
+            const s = document.createElement('script');
+            s.src = 'https://cdn.jsdelivr.net/npm/three@0.150.1/examples/js/loaders/GLTFLoader.js';
+            s.onload = resolve;
+            s.onerror = reject;
+            document.head.appendChild(s);
+          });
+        }
+        loader = new THREE.GLTFLoader();
+      }
+
       loader.load(resolvedModel, (gltf) => {
         model = gltf.scene || (gltf.scenes && gltf.scenes[0]);
         if (!model) { console.log('[Model] GLB had no scene, fallback cube'); return; }
@@ -113,9 +129,9 @@
         model.traverse((child)=>{ if (child.material){ child.material.depthTest=false; child.material.depthWrite=false; child.material.transparent=false; child.material.needsUpdate=true; } });
         scene.add(model);
         modelLoaded = true;
-        console.log('[Model] GLB loaded', resolvedModel);
-      }, undefined, (err) => { console.log('[Model] load error', String(err)); });
-    } catch (e) { console.log('[Model] loader init failed', e); }
+        console.log('[Model] GLB loaded ' + resolvedModel);
+      }, undefined, (err) => { console.log('[Model] load error ' + String(err)); });
+    } catch (e) { console.log('[Model] loader init failed ' + (e && (e.message || String(e)))); }
 
     let xrSession = null; let refSpace = null; let viewerSpace = null; let hitSource = null; let autoPlaced = false;
 
