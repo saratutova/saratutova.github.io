@@ -16,7 +16,7 @@
 <body>
   <div id="overlay" style="position:fixed; inset:0; z-index: 20; pointer-events:auto;">
     <div id="hint">Tap Start AR, then Place.</div>
-    <div id="build">xr-min build 9</div>
+    <div id="build">xr-min build 10</div>
     <div id="ui">
       <button id="start">Start AR</button>
       <button id="place" disabled>Place</button>
@@ -116,15 +116,12 @@
           const afScene = document.createElement('a-scene');
           afScene.setAttribute('embedded', '');
           afScene.style.cssText = 'position:fixed;left:-9999px;top:-9999px;width:1px;height:1px;opacity:0;pointer-events:none;';
-          const assets = document.createElement('a-assets');
-          const asset = document.createElement('a-asset-item');
-          asset.setAttribute('id', 'fallbackModelAsset');
-          asset.setAttribute('src', glbUrl);
           const entity = document.createElement('a-entity');
           entity.setAttribute('id', 'fallbackModelEntity');
-          entity.setAttribute('gltf-model', '#fallbackModelAsset');
+          // Use direct URL to avoid asset registry timing issues
+          entity.setAttribute('gltf-model', glbUrl);
           entity.setAttribute('visible', 'false');
-          assets.appendChild(asset); afScene.appendChild(assets); afScene.appendChild(entity);
+          afScene.appendChild(entity);
           document.body.appendChild(afScene);
           return await new Promise((resolve) => {
             let settled = false;
