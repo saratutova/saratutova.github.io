@@ -16,7 +16,7 @@
 <body>
   <div id="overlay" style="position:fixed; inset:0; z-index: 20; pointer-events:auto;">
     <div id="hint">Tap Start AR, then Place.</div>
-    <div id="build">xr-min build 10</div>
+    <div id="build">xr-min build 11</div>
     <div id="ui">
       <button id="start">Start AR</button>
       <button id="place" disabled>Place</button>
@@ -92,7 +92,7 @@
       new THREE.BoxGeometry(s, s, s),
       new THREE.MeshBasicMaterial({ color: 0xff00ff })
     );
-    cube.visible = false; cube.renderOrder = 9999; cube.material.depthTest = false; cube.material.depthWrite = false;
+    cube.visible = false; cube.renderOrder = 9999; cube.material.depthTest = true; cube.material.depthWrite = true;
     scene.add(cube);
 
     // Load GLB model by default
@@ -141,7 +141,7 @@
                   });
                 }
                 model.visible = false; model.renderOrder = 9999;
-                model.traverse((child)=>{ if (child.material){ child.material.depthTest=false; child.material.depthWrite=false; child.material.transparent=false; child.material.needsUpdate=true; } });
+                model.traverse((child)=>{ if (child.material){ child.material.depthTest=true; child.material.depthWrite=true; child.material.needsUpdate=true; } });
                 scene.add(model);
                 modelLoaded = true;
                 console.log('[Model] GLB loaded via A-Frame fallback', glbUrl);
@@ -218,7 +218,7 @@
           }
           model.visible = false;
           model.renderOrder = 9999;
-          model.traverse((child)=>{ if (child.material){ child.material.depthTest=false; child.material.depthWrite=false; child.material.transparent=false; child.material.needsUpdate=true; } });
+          model.traverse((child)=>{ if (child.material){ child.material.depthTest=true; child.material.depthWrite=true; child.material.needsUpdate=true; } });
           scene.add(model);
           modelLoaded = true;
           console.log('[Model] GLB loaded ' + resolvedModel);
