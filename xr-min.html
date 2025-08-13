@@ -16,7 +16,7 @@
 <body>
   <div id="overlay" style="position:fixed; inset:0; z-index: 20; pointer-events:auto;">
     <div id="hint">Tap Start AR, then Place.</div>
-    <div id="build">xr-min build 12</div>
+    <div id="build">xr-min build 13</div>
     <div id="ui">
       <button id="start">Start AR</button>
       <button id="place" disabled>Place</button>
@@ -47,6 +47,12 @@
     const big = url.searchParams.get('big') === '1';
     const forceCube = url.searchParams.get('cube') === '1';
     const basicMat = url.searchParams.get('basic') === '1';
+    // Unit and scaling controls
+    const unitsParam = (url.searchParams.get('units') || url.searchParams.get('u') || '').toLowerCase();
+    const unitScaleParam = parseFloat(url.searchParams.get('unitScale') || url.searchParams.get('us') || 'NaN');
+    const unitScale = Number.isFinite(unitScaleParam) ? unitScaleParam :
+      (unitsParam === 'cm' ? 0.01 : unitsParam === 'mm' ? 0.001 : unitsParam === 'in' ? 0.0254 : unitsParam === 'ft' ? 0.3048 : 1);
+    const targetMaxDimMeters = parseFloat(url.searchParams.get('target') || url.searchParams.get('length') || url.searchParams.get('max') || 'NaN');
     const modelUrl = url.searchParams.get('model') || './models/7579_3K_V2.glb';
     const useV1 = url.searchParams.get('v1') === '1';
     const resolvedModel = useV1 ? './models/7579_3K_V1.glb' : modelUrl;
@@ -96,7 +102,7 @@
     scene.add(cube);
 
     // Load GLB model by default
-    let model = null; let modelLoaded = false;
+    let model = null; let modelLoaded = false; let modelOriginalMaxDim = null; let modelScaleApplied = false;
 
     async function initModelLoader() {
       async function loadScript(url) {
@@ -140,11 +146,21 @@
                     }
                   });
                 }
-                model.visible = false; model.renderOrder = 9999;
-                model.traverse((child)=>{ if (child.material){ child.material.depthTest=true; child.material.depthWrite=true; child.material.needsUpdate=true; } });
-                scene.add(model);
-                modelLoaded = true;
-                console.log('[Model] GLB loaded via A-Frame fallback', glbUrl);
+                 model.visible = false; model.renderOrder = 9999;
+                 model.traverse((child)=>{ if (child.material){ child.material.depthTest=true; child.material.depthWrite=true; child.material.needsUpdate=true; } });
+                 try { if (!modelScaleApplied && unitScale && unitScale !== 1) { model.scale.multiplyScalar(unitScale); modelScaleApplied = true; console.log('[Model] applied unitScale', unitScale); } } catch(_){ }
+                 try {
+                   if (!modelScaleApplied && Number.isFinite(targetMaxDimMeters)) {
+                     const bboxTmp = new THREE.Box3().setFromObject(model);
+                     const sz = new THREE.Vector3(); bboxTmp.getSize(sz);
+                     const maxDimNow = Math.max(sz.x, sz.y, sz.z) || 1;
+                     const f = targetMaxDimMeters / maxDimNow;
+                     if (Number.isFinite(f) && f > 0) { model.scale.multiplyScalar(f); modelScaleApplied = true; console.log('[Model] applied targetMaxDim scale', f, 'target=', targetMaxDimMeters, 'current=', maxDimNow); }
+                   }
+                 } catch(_){ }
+                 scene.add(model);
+                 modelLoaded = true;
+                 try { const bb = new THREE.Box3().setFromObject(model); const szz = new THREE.Vector3(); bb.getSize(szz); console.log('[Model] GLB loaded via A-Frame fallback', glbUrl, 'final size m=', {x:szz.x,y:szz.y,z:szz.z}); } catch(_) { console.log('[Model] GLB loaded via A-Frame fallback', glbUrl); }
                 done(true);
               } catch (err) { console.log('[Model] A-Frame fallback failed after load', err); done(false); }
             }, { once: true });
@@ -219,9 +235,19 @@
           model.visible = false;
           model.renderOrder = 9999;
           model.traverse((child)=>{ if (child.material){ child.material.depthTest=true; child.material.depthWrite=true; child.material.needsUpdate=true; } });
+          try { if (!modelScaleApplied && unitScale && unitScale !== 1) { model.scale.multiplyScalar(unitScale); modelScaleApplied = true; console.log('[Model] applied unitScale', unitScale); } } catch(_){ }
+          try {
+            if (!modelScaleApplied && Number.isFinite(targetMaxDimMeters)) {
+              const bboxTmp = new THREE.Box3().setFromObject(model);
+              const sz = new THREE.Vector3(); bboxTmp.getSize(sz);
+              const maxDimNow = Math.max(sz.x, sz.y, sz.z) || 1;
+              const f = targetMaxDimMeters / maxDimNow;
+              if (Number.isFinite(f) && f > 0) { model.scale.multiplyScalar(f); modelScaleApplied = true; console.log('[Model] applied targetMaxDim scale', f, 'target=', targetMaxDimMeters, 'current=', maxDimNow); }
+            }
+          } catch(_){ }
           scene.add(model);
           modelLoaded = true;
-          console.log('[Model] GLB loaded ' + resolvedModel);
+          try { const bb = new THREE.Box3().setFromObject(model); const szz = new THREE.Vector3(); bb.getSize(szz); console.log('[Model] GLB loaded', resolvedModel, 'final size m=', {x:szz.x,y:szz.y,z:szz.z}); } catch(_) { console.log('[Model] GLB loaded ' + resolvedModel); }
         }, undefined, async (err) => {
           console.log('[Model] load error ' + String(err));
           try { if (!modelLoaded) await tryAframeFallbackLoader(resolvedModel); } catch(_) {}
