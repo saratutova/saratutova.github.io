@@ -16,7 +16,7 @@
 <body>
   <div id="overlay" style="position:fixed; inset:0; z-index: 20; pointer-events:auto;">
     <div id="hint">Tap Start AR, then Place.</div>
-    <div id="build">xr-min build 8</div>
+    <div id="build">xr-min build 9</div>
     <div id="ui">
       <button id="start">Start AR</button>
       <button id="place" disabled>Place</button>
@@ -65,6 +65,8 @@
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.xr.enabled = true;
     document.body.appendChild(renderer.domElement);
+    // Ensure overlay stays interactive above the canvas
+    try { renderer.domElement.style.position = 'fixed'; renderer.domElement.style.inset = '0'; renderer.domElement.style.zIndex = '0'; } catch(_) {}
 
     if (opaque) {
       renderer.setClearColor(0x000000, 1);
@@ -96,151 +98,144 @@
     // Load GLB model by default
     let model = null; let modelLoaded = false;
 
-    async function loadScript(url) {
-      return new Promise((resolve, reject) => {
-        const s = document.createElement('script');
-        s.src = url; s.async = true; s.crossOrigin = 'anonymous';
-        s.onload = resolve; s.onerror = reject; document.head.appendChild(s);
-      });
-    }
-
-    async function tryAframeFallbackLoader(glbUrl) {
-      try {
-        if (!window.AFRAME) {
-          await loadScript('https://aframe.io/releases/1.4.0/aframe.min.js');
-          console.log('[Model] A-Frame loaded for fallback');
-        }
-        const afScene = document.createElement('a-scene');
-        afScene.setAttribute('embedded', '');
-        afScene.style.cssText = 'position:fixed;left:-9999px;top:-9999px;width:1px;height:1px;opacity:0;pointer-events:none;';
-        const assets = document.createElement('a-assets');
-        const asset = document.createElement('a-asset-item');
-        asset.setAttribute('id', 'fallbackModelAsset');
-        asset.setAttribute('src', glbUrl);
-        const entity = document.createElement('a-entity');
-        entity.setAttribute('id', 'fallbackModelEntity');
-        entity.setAttribute('gltf-model', '#fallbackModelAsset');
-        entity.setAttribute('visible', 'false');
-        assets.appendChild(asset); afScene.appendChild(assets); afScene.appendChild(entity);
-        document.body.appendChild(afScene);
-        return await new Promise((resolve) => {
-          let settled = false;
-          const done = (ok) => { if (settled) return; settled = true; resolve(ok); };
-          entity.addEventListener('model-loaded', () => {
-            try {
-              const src = entity.getObject3D && entity.getObject3D('mesh');
-              if (!src) { console.log('[Model] A-Frame fallback: no mesh on entity'); done(false); return; }
-              const clone = src.clone(true);
-              model = clone;
-              if (basicMat) {
-                model.traverse((child) => {
-                  if (child.isMesh && child.material) {
-                    const map = child.material.map || null;
-                    child.material = new THREE.MeshBasicMaterial({ color: 0xffffff, map });
-                  }
-                });
-              }
-              model.visible = false; model.renderOrder = 9999;
-              model.traverse((child)=>{ if (child.material){ child.material.depthTest=false; child.material.depthWrite=false; child.material.transparent=false; child.material.needsUpdate=true; } });
-              scene.add(model);
-              modelLoaded = true;
-              console.log('[Model] GLB loaded via A-Frame fallback', glbUrl);
-              done(true);
-            } catch (err) { console.log('[Model] A-Frame fallback failed after load', err); done(false); }
-          }, { once: true });
-          entity.addEventListener('model-error', (e) => { console.log('[Model] A-Frame fallback model-error', e && e.detail); done(false); }, { once: true });
-          // Safety timeout
-          setTimeout(() => done(false), 15000);
+    async function initModelLoader() {
+      async function loadScript(url) {
+        return new Promise((resolve, reject) => {
+          const s = document.createElement('script');
+          s.src = url; s.async = true; s.crossOrigin = 'anonymous';
+          s.onload = resolve; s.onerror = reject; document.head.appendChild(s);
         });
-      } catch (err) {
-        console.log('[Model] A-Frame fallback init failed', err);
-        return false;
       }
-    }
-    try {
-      let loader = null;
 
-      async function tryEsm(url) {
+      async function tryAframeFallbackLoader(glbUrl) {
         try {
-          const mod = await import(url);
-          console.log('[Model] ESM loader loaded', url);
-          return mod.GLTFLoader || mod.default;
+          if (!window.AFRAME) {
+            await loadScript('https://aframe.io/releases/1.4.0/aframe.min.js');
+            console.log('[Model] A-Frame loaded for fallback');
+          }
+          const afScene = document.createElement('a-scene');
+          afScene.setAttribute('embedded', '');
+          afScene.style.cssText = 'position:fixed;left:-9999px;top:-9999px;width:1px;height:1px;opacity:0;pointer-events:none;';
+          const assets = document.createElement('a-assets');
+          const asset = document.createElement('a-asset-item');
+          asset.setAttribute('id', 'fallbackModelAsset');
+          asset.setAttribute('src', glbUrl);
+          const entity = document.createElement('a-entity');
+          entity.setAttribute('id', 'fallbackModelEntity');
+          entity.setAttribute('gltf-model', '#fallbackModelAsset');
+          entity.setAttribute('visible', 'false');
+          assets.appendChild(asset); afScene.appendChild(assets); afScene.appendChild(entity);
+          document.body.appendChild(afScene);
+          return await new Promise((resolve) => {
+            let settled = false;
+            const done = (ok) => { if (settled) return; settled = true; resolve(ok); };
+            entity.addEventListener('model-loaded', () => {
+              try {
+                const src = entity.getObject3D && entity.getObject3D('mesh');
+                if (!src) { console.log('[Model] A-Frame fallback: no mesh on entity'); done(false); return; }
+                const clone = src.clone(true);
+                model = clone;
+                if (basicMat) {
+                  model.traverse((child) => {
+                    if (child.isMesh && child.material) {
+                      const map = child.material.map || null;
+                      child.material = new THREE.MeshBasicMaterial({ color: 0xffffff, map });
+                    }
+                  });
+                }
+                model.visible = false; model.renderOrder = 9999;
+                model.traverse((child)=>{ if (child.material){ child.material.depthTest=false; child.material.depthWrite=false; child.material.transparent=false; child.material.needsUpdate=true; } });
+                scene.add(model);
+                modelLoaded = true;
+                console.log('[Model] GLB loaded via A-Frame fallback', glbUrl);
+                done(true);
+              } catch (err) { console.log('[Model] A-Frame fallback failed after load', err); done(false); }
+            }, { once: true });
+            entity.addEventListener('model-error', (e) => { console.log('[Model] A-Frame fallback model-error', e && e.detail); done(false); }, { once: true });
+            // Safety timeout
+            setTimeout(() => done(false), 15000);
+          });
         } catch (err) {
-          console.log('[Model] ESM loader failed', url, (err && (err.message || String(err))));
-          return null;
+          console.log('[Model] A-Frame fallback init failed', err);
+          return false;
         }
       }
 
-      async function tryUmd(url) {
-        return new Promise((resolve) => {
-          const script = document.createElement('script');
-          script.src = url;
-          script.async = true;
-          script.crossOrigin = 'anonymous';
-          script.onload = () => { console.log('[Model] UMD loader loaded', url); resolve(true); };
-          script.onerror = () => { console.log('[Model] UMD loader failed', url); resolve(false); };
-          document.head.appendChild(script);
-          setTimeout(() => resolve(false), 12000);
-        });
-      }
-
-      // Attempt multiple sources in order
-      const esmUrls = [
-        'https://cdn.jsdelivr.net/npm/three@0.150.1/examples/jsm/loaders/GLTFLoader.js',
-        'https://unpkg.com/three@0.150.1/examples/jsm/loaders/GLTFLoader.js'
-      ];
-      const umdUrls = [
-        'https://cdn.jsdelivr.net/npm/three@0.150.1/examples/js/loaders/GLTFLoader.js',
-        'https://unpkg.com/three@0.150.1/examples/js/loaders/GLTFLoader.js',
-        'https://cdnjs.cloudflare.com/ajax/libs/three.js/r150/examples/js/loaders/GLTFLoader.min.js'
-      ];
-
-      // Try ESM first
-      for (const url of esmUrls) {
-        const GLTFLoaderCtor = await tryEsm(url);
-        if (GLTFLoaderCtor) { loader = new GLTFLoaderCtor(); break; }
-      }
-
-      // Fallback to UMD if needed
-      if (!loader) {
-        if (!THREE.GLTFLoader) {
-          for (const url of umdUrls) {
-            const ok = await tryUmd(url);
-            if (ok && THREE.GLTFLoader) break;
+      try {
+        let loader = null;
+        async function tryEsm(url) {
+          try {
+            const mod = await import(url);
+            console.log('[Model] ESM loader loaded', url);
+            return mod.GLTFLoader || mod.default;
+          } catch (err) {
+            console.log('[Model] ESM loader failed', url, (err && (err.message || String(err))));
+            return null;
           }
         }
-        if (THREE.GLTFLoader) loader = new THREE.GLTFLoader();
-      }
-
-      if (!loader) throw new Error('GLTFLoader could not be initialized from any CDN');
-
-      loader.load(resolvedModel, (gltf) => {
-        model = gltf.scene || (gltf.scenes && gltf.scenes[0]);
-        if (!model) { console.log('[Model] GLB had no scene, fallback cube'); return; }
-        if (basicMat) {
-          model.traverse((child) => {
-            if (child.isMesh && child.material) {
-              const map = child.material.map || null;
-              child.material = new THREE.MeshBasicMaterial({ color: 0xffffff, map });
-            }
+        async function tryUmd(url) {
+          return new Promise((resolve) => {
+            const script = document.createElement('script');
+            script.src = url;
+            script.async = true;
+            script.crossOrigin = 'anonymous';
+            script.onload = () => { console.log('[Model] UMD loader loaded', url); resolve(true); };
+            script.onerror = () => { console.log('[Model] UMD loader failed', url); resolve(false); };
+            document.head.appendChild(script);
+            setTimeout(() => resolve(false), 12000);
           });
         }
-        model.visible = false;
-        model.renderOrder = 9999;
-        model.traverse((child)=>{ if (child.material){ child.material.depthTest=false; child.material.depthWrite=false; child.material.transparent=false; child.material.needsUpdate=true; } });
-        scene.add(model);
-        modelLoaded = true;
-        console.log('[Model] GLB loaded ' + resolvedModel);
-      }, undefined, async (err) => {
-        console.log('[Model] load error ' + String(err));
-        // Try A-Frame fallback if network blocked GLTFLoader path
+        const esmUrls = [
+          'https://cdn.jsdelivr.net/npm/three@0.150.1/examples/jsm/loaders/GLTFLoader.js',
+          'https://unpkg.com/three@0.150.1/examples/jsm/loaders/GLTFLoader.js'
+        ];
+        const umdUrls = [
+          'https://cdn.jsdelivr.net/npm/three@0.150.1/examples/js/loaders/GLTFLoader.js',
+          'https://unpkg.com/three@0.150.1/examples/js/loaders/GLTFLoader.js',
+          'https://cdnjs.cloudflare.com/ajax/libs/three.js/r150/examples/js/loaders/GLTFLoader.min.js'
+        ];
+        for (const url of esmUrls) {
+          const GLTFLoaderCtor = await tryEsm(url);
+          if (GLTFLoaderCtor) { loader = new GLTFLoaderCtor(); break; }
+        }
+        if (!loader) {
+          if (!THREE.GLTFLoader) {
+            for (const url of umdUrls) {
+              const ok = await tryUmd(url);
+              if (ok && THREE.GLTFLoader) break;
+            }
+          }
+          if (THREE.GLTFLoader) loader = new THREE.GLTFLoader();
+        }
+        if (!loader) throw new Error('GLTFLoader could not be initialized from any CDN');
+        loader.load(resolvedModel, (gltf) => {
+          model = gltf.scene || (gltf.scenes && gltf.scenes[0]);
+          if (!model) { console.log('[Model] GLB had no scene, fallback cube'); return; }
+          if (basicMat) {
+            model.traverse((child) => {
+              if (child.isMesh && child.material) {
+                const map = child.material.map || null;
+                child.material = new THREE.MeshBasicMaterial({ color: 0xffffff, map });
+              }
+            });
+          }
+          model.visible = false;
+          model.renderOrder = 9999;
+          model.traverse((child)=>{ if (child.material){ child.material.depthTest=false; child.material.depthWrite=false; child.material.transparent=false; child.material.needsUpdate=true; } });
+          scene.add(model);
+          modelLoaded = true;
+          console.log('[Model] GLB loaded ' + resolvedModel);
+        }, undefined, async (err) => {
+          console.log('[Model] load error ' + String(err));
+          try { if (!modelLoaded) await tryAframeFallbackLoader(resolvedModel); } catch(_) {}
+        });
+      } catch (e) {
+        console.log('[Model] loader init failed ' + (e && (e.message || String(e))));
         try { if (!modelLoaded) await tryAframeFallbackLoader(resolvedModel); } catch(_) {}
-      });
-    } catch (e) {
-      console.log('[Model] loader init failed ' + (e && (e.message || String(e))));
-      // Try A-Frame fallback loader as a last resort
-      try { if (!modelLoaded) await tryAframeFallbackLoader(resolvedModel); } catch(_) {}
+      }
     }
+    // Kick model loading in the background so UI is responsive immediately
+    try { initModelLoader(); } catch(_) {}
 
     let xrSession = null; let refSpace = null; let viewerSpace = null; let hitSource = null; let autoPlaced = false;
 
@@ -310,10 +305,21 @@
 
     renderer.setAnimationLoop(onXRFrame);
 
-    startBtn.onclick = startAR;
-    placeBtn.onclick = place;
-    exitBtn.onclick = () => { try { const s = renderer.xr.getSession(); if (s) s.end(); } catch(_) {} };
-    logsBtn.onclick = () => { const blob = new Blob([(window.__logBuffer||[]).join('\n')], {type:'text/plain'}); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'xr-min-logs.txt'; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),1000); };
+    // Bind UI early and robustly
+    if (startBtn) startBtn.addEventListener('click', () => { console.log('[UI] Start AR clicked'); try { startAR(); } catch(e){ console.log('[UI] startAR failed', e); } });
+    if (placeBtn) placeBtn.addEventListener('click', () => { console.log('[UI] Place clicked'); try { place(); } catch(e){ console.log('[UI] place failed', e); } });
+    if (exitBtn) exitBtn.addEventListener('click', () => { console.log('[UI] Exit clicked'); try { const s = renderer.xr.getSession(); if (s) s.end(); } catch(_) {} });
+    if (logsBtn) logsBtn.addEventListener('click', () => {
+      try {
+        const text = (window.__logBuffer||[]).join('\n');
+        const blob = new Blob([text], {type:'text/plain'});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = 'xr-min-logs.txt';
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+        setTimeout(()=>URL.revokeObjectURL(url), 1000);
+      } catch (e) { console.log('[UI] Download logs failed', e); }
+    });
 
     if (autoPlace) {
       document.addEventListener('click', () => { if (renderer.xr.isPresenting) { place(); } }, { once: true });
