@@ -53,7 +53,7 @@
     const unitScale = Number.isFinite(unitScaleParam) ? unitScaleParam :
       (unitsParam === 'cm' ? 0.01 : unitsParam === 'mm' ? 0.001 : unitsParam === 'in' ? 0.0254 : unitsParam === 'ft' ? 0.3048 : 1);
     const targetMaxDimMeters = parseFloat(url.searchParams.get('target') || url.searchParams.get('length') || url.searchParams.get('max') || 'NaN');
-    const modelUrl = url.searchParams.get('model') || './models/7579_3K_V2.glb';
+    const modelUrl = url.searchParams.get('model') || './models/7579_3K_V3.glb';
     const useV1 = url.searchParams.get('v1') === '1';
     const resolvedModel = useV1 ? './models/7579_3K_V1.glb' : modelUrl;
 
