@@ -16,7 +16,7 @@
 <body>
   <div id="overlay" style="position:fixed; inset:0; z-index: 20; pointer-events:auto;">
     <div id="hint">Tap Start AR, then Place.</div>
-    <div id="build">xr-min build 16</div>
+    <div id="build">xr-min build 17</div>
     <div id="ui">
       <button id="start">Start AR</button>
       <button id="place" disabled>Place</button>
@@ -272,44 +272,57 @@
     function place(){
       const target = (!forceCube && modelLoaded && model) ? model : cube;
       
-      // Apply scaling every time to ensure proper sizing
-      if (target === model) {
-        // Reset scale to original size first to avoid cumulative scaling
-        target.scale.setScalar(1);
-        
-        try { 
-          if (unitScale && unitScale !== 1) { 
-            target.scale.multiplyScalar(unitScale); 
-            console.log('[Place] applied unitScale', unitScale); 
-          } 
-        } catch(_){ }
-        
-        try {
-          if (Number.isFinite(targetMaxDimMeters)) {
-            const bboxTmp = new THREE.Box3().setFromObject(target);
-            const sz = new THREE.Vector3(); 
-            bboxTmp.getSize(sz);
-            const maxDimNow = Math.max(sz.x, sz.y, sz.z) || 1;
-            const f = targetMaxDimMeters / maxDimNow;
-            if (Number.isFinite(f) && f > 0) { 
-              target.scale.multiplyScalar(f); 
-              console.log('[Place] applied targetMaxDim scale', f, 'target=', targetMaxDimMeters, 'current=', maxDimNow); 
-            }
-          }
-        } catch(_){ }
-        
-        // Apply manual scale parameter if provided
-        try {
-          const sp = url.searchParams.get('scale');
-          if (sp != null) {
-            const sf = parseFloat(sp);
-            if (Number.isFinite(sf) && sf > 0) { 
-              target.scale.setScalar(sf); 
-              console.log('[Place] applied scale param', sf); 
-            }
-          }
-        } catch(_) {}
-      }
+             // Apply scaling every time to ensure proper sizing
+       if (target === model) {
+         // Reset scale to original size first to avoid cumulative scaling
+         target.scale.setScalar(1);
+         console.log('[Place] reset scale to 1');
+         
+         try { 
+           if (unitScale && unitScale !== 1) { 
+             target.scale.multiplyScalar(unitScale); 
+             console.log('[Place] applied unitScale', unitScale); 
+           } else {
+             console.log('[Place] no unitScale applied, unitScale =', unitScale);
+           }
+         } catch(_){ }
+         
+         try {
+           if (Number.isFinite(targetMaxDimMeters)) {
+             const bboxTmp = new THREE.Box3().setFromObject(target);
+             const sz = new THREE.Vector3(); 
+             bboxTmp.getSize(sz);
+             const maxDimNow = Math.max(sz.x, sz.y, sz.z) || 1;
+             const f = targetMaxDimMeters / maxDimNow;
+             if (Number.isFinite(f) && f > 0) { 
+               target.scale.multiplyScalar(f); 
+               console.log('[Place] applied targetMaxDim scale', f, 'target=', targetMaxDimMeters, 'current=', maxDimNow); 
+             }
+           } else {
+             console.log('[Place] no targetMaxDimMeters applied, value =', targetMaxDimMeters);
+           }
+         } catch(_){ }
+         
+         // Apply manual scale parameter if provided
+         try {
+           const sp = url.searchParams.get('scale');
+           if (sp != null) {
+             const sf = parseFloat(sp);
+             if (Number.isFinite(sf) && sf > 0) { 
+               target.scale.setScalar(sf); 
+               console.log('[Place] applied scale param', sf); 
+             }
+           }
+         } catch(_) {}
+         
+         // Log final scale and size after all scaling
+         try {
+           const bboxFinal = new THREE.Box3().setFromObject(target);
+           const sizeFinal = new THREE.Vector3();
+           bboxFinal.getSize(sizeFinal);
+           console.log('[Place] final scale:', target.scale, 'final size:', sizeFinal);
+         } catch(_) {}
+       }
       
       if (reticle.visible) {
         target.position.copy(reticle.position);
@@ -320,21 +333,20 @@
         target.quaternion.copy(camera.quaternion);
       }
       
-      // Position the object so it sits ON the surface, not floating above it
-      if (target === model && modelLoaded) {
-        try {
-          const bbox = new THREE.Box3().setFromObject(target);
-          const size = new THREE.Vector3();
-          bbox.getSize(size);
-          // Position so the bottom of the object touches the surface
-          // The bbox.min.y represents the bottom of the object in local space
-          // We need to offset by this amount to make the bottom touch the surface
-          const localBottom = bbox.min.y;
-          target.position.y -= localBottom;
-        } catch(_) {}
-      } else {
-        target.position.y += 0.05;
-      }
+             // Position the object so it sits ON the surface, not floating above it
+       if (target === model && modelLoaded) {
+         try {
+           const bbox = new THREE.Box3().setFromObject(target);
+           // Position so the bottom of the object touches the surface
+           // The bbox.min.y represents the bottom of the object in local space
+           // We need to offset by this amount to make the bottom touch the surface
+           const localBottom = bbox.min.y;
+           target.position.y -= localBottom;
+           console.log('[Place] positioned model, localBottom:', localBottom, 'final Y:', target.position.y);
+         } catch(_) {}
+       } else {
+         target.position.y += 0.05;
+       }
       
       target.visible = true;
       console.log('[Place] placed at', target.position);
