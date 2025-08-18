@@ -16,7 +16,7 @@
 <body>
   <div id="overlay" style="position:fixed; inset:0; z-index: 20; pointer-events:auto;">
     <div id="hint">Tap Start AR, then Place.</div>
-    <div id="build">xr-min build 14</div>
+    <div id="build">xr-min build 15</div>
     <div id="ui">
       <button id="start">Start AR</button>
       <button id="place" disabled>Place</button>
@@ -272,12 +272,14 @@
     function place(){
       const target = (!forceCube && modelLoaded && model) ? model : cube;
       
-      // Apply scaling before positioning to ensure proper centering
-      if (target === model && !modelScaleApplied) {
+      // Apply scaling every time to ensure proper sizing
+      if (target === model) {
+        // Reset scale to original size first to avoid cumulative scaling
+        target.scale.setScalar(1);
+        
         try { 
           if (unitScale && unitScale !== 1) { 
             target.scale.multiplyScalar(unitScale); 
-            modelScaleApplied = true; 
             console.log('[Place] applied unitScale', unitScale); 
           } 
         } catch(_){ }
@@ -291,7 +293,6 @@
             const f = targetMaxDimMeters / maxDimNow;
             if (Number.isFinite(f) && f > 0) { 
               target.scale.multiplyScalar(f); 
-              modelScaleApplied = true; 
               console.log('[Place] applied targetMaxDim scale', f, 'target=', targetMaxDimMeters, 'current=', maxDimNow); 
             }
           }
@@ -319,14 +320,17 @@
         target.quaternion.copy(camera.quaternion);
       }
       
-      // Adjust Y position to account for object height to center on reticle
+      // Position the object so it sits ON the surface, not floating above it
       if (target === model && modelLoaded) {
         try {
           const bbox = new THREE.Box3().setFromObject(target);
           const size = new THREE.Vector3();
           bbox.getSize(size);
-          // Center the object vertically on the reticle by offsetting by half the height
-          target.position.y += size.y / 2;
+          // Position so the bottom of the object touches the surface
+          // The bbox.min.y represents the bottom of the object in local space
+          // We need to offset by this amount to make the bottom touch the surface
+          const localBottom = bbox.min.y;
+          target.position.y -= localBottom;
         } catch(_) {}
       } else {
         target.position.y += 0.05;
