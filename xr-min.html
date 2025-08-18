@@ -16,7 +16,7 @@
 <body>
   <div id="overlay" style="position:fixed; inset:0; z-index: 20; pointer-events:auto;">
     <div id="hint">Tap Start AR, then Place.</div>
-    <div id="build">xr-min build 17</div>
+    <div id="build">xr-min build 18</div>
     <div id="ui">
       <button id="start">Start AR</button>
       <button id="place" disabled>Place</button>
@@ -337,12 +337,17 @@
        if (target === model && modelLoaded) {
          try {
            const bbox = new THREE.Box3().setFromObject(target);
-           // Position so the bottom of the object touches the surface
-           // The bbox.min.y represents the bottom of the object in local space
-           // We need to offset by this amount to make the bottom touch the surface
-           const localBottom = bbox.min.y;
-           target.position.y -= localBottom;
-           console.log('[Place] positioned model, localBottom:', localBottom, 'final Y:', target.position.y);
+           const size = new THREE.Vector3();
+           bbox.getSize(size);
+           
+           // The object is currently centered on the reticle
+           // We need to move it down so its bottom touches the surface
+           // Since bbox.min.y is the local bottom, and we want the bottom at the surface,
+           // we need to offset by the height of the object
+           const objectHeight = size.y;
+           target.position.y -= objectHeight / 2;
+           
+           console.log('[Place] positioned model, height:', objectHeight, 'offset:', objectHeight/2, 'final Y:', target.position.y);
          } catch(_) {}
        } else {
          target.position.y += 0.05;
