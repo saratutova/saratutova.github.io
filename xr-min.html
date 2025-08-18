@@ -16,7 +16,7 @@
 <body>
   <div id="overlay" style="position:fixed; inset:0; z-index: 20; pointer-events:auto;">
     <div id="hint">Tap Start AR, then Place.</div>
-    <div id="build">xr-min build 13</div>
+    <div id="build">xr-min build 14</div>
     <div id="ui">
       <button id="start">Start AR</button>
       <button id="place" disabled>Place</button>
@@ -148,16 +148,8 @@
                 }
                  model.visible = false; model.renderOrder = 9999;
                  model.traverse((child)=>{ if (child.material){ child.material.depthTest=true; child.material.depthWrite=true; child.material.needsUpdate=true; } });
-                 try { if (!modelScaleApplied && unitScale && unitScale !== 1) { model.scale.multiplyScalar(unitScale); modelScaleApplied = true; console.log('[Model] applied unitScale', unitScale); } } catch(_){ }
-                 try {
-                   if (!modelScaleApplied && Number.isFinite(targetMaxDimMeters)) {
-                     const bboxTmp = new THREE.Box3().setFromObject(model);
-                     const sz = new THREE.Vector3(); bboxTmp.getSize(sz);
-                     const maxDimNow = Math.max(sz.x, sz.y, sz.z) || 1;
-                     const f = targetMaxDimMeters / maxDimNow;
-                     if (Number.isFinite(f) && f > 0) { model.scale.multiplyScalar(f); modelScaleApplied = true; console.log('[Model] applied targetMaxDim scale', f, 'target=', targetMaxDimMeters, 'current=', maxDimNow); }
-                   }
-                 } catch(_){ }
+                 // Don't apply scaling here - let the place() function handle it
+                 // This prevents double-scaling and ensures proper centering
                  scene.add(model);
                  modelLoaded = true;
                  try { const bb = new THREE.Box3().setFromObject(model); const szz = new THREE.Vector3(); bb.getSize(szz); console.log('[Model] GLB loaded via A-Frame fallback', glbUrl, 'final size m=', {x:szz.x,y:szz.y,z:szz.z}); } catch(_) { console.log('[Model] GLB loaded via A-Frame fallback', glbUrl); }
@@ -235,16 +227,8 @@
           model.visible = false;
           model.renderOrder = 9999;
           model.traverse((child)=>{ if (child.material){ child.material.depthTest=true; child.material.depthWrite=true; child.material.needsUpdate=true; } });
-          try { if (!modelScaleApplied && unitScale && unitScale !== 1) { model.scale.multiplyScalar(unitScale); modelScaleApplied = true; console.log('[Model] applied unitScale', unitScale); } } catch(_){ }
-          try {
-            if (!modelScaleApplied && Number.isFinite(targetMaxDimMeters)) {
-              const bboxTmp = new THREE.Box3().setFromObject(model);
-              const sz = new THREE.Vector3(); bboxTmp.getSize(sz);
-              const maxDimNow = Math.max(sz.x, sz.y, sz.z) || 1;
-              const f = targetMaxDimMeters / maxDimNow;
-              if (Number.isFinite(f) && f > 0) { model.scale.multiplyScalar(f); modelScaleApplied = true; console.log('[Model] applied targetMaxDim scale', f, 'target=', targetMaxDimMeters, 'current=', maxDimNow); }
-            }
-          } catch(_){ }
+          // Don't apply scaling here - let the place() function handle it
+          // This prevents double-scaling and ensures proper centering
           scene.add(model);
           modelLoaded = true;
           try { const bb = new THREE.Box3().setFromObject(model); const szz = new THREE.Vector3(); bb.getSize(szz); console.log('[Model] GLB loaded', resolvedModel, 'final size m=', {x:szz.x,y:szz.y,z:szz.z}); } catch(_) { console.log('[Model] GLB loaded ' + resolvedModel); }
@@ -287,6 +271,45 @@
 
     function place(){
       const target = (!forceCube && modelLoaded && model) ? model : cube;
+      
+      // Apply scaling before positioning to ensure proper centering
+      if (target === model && !modelScaleApplied) {
+        try { 
+          if (unitScale && unitScale !== 1) { 
+            target.scale.multiplyScalar(unitScale); 
+            modelScaleApplied = true; 
+            console.log('[Place] applied unitScale', unitScale); 
+          } 
+        } catch(_){ }
+        
+        try {
+          if (Number.isFinite(targetMaxDimMeters)) {
+            const bboxTmp = new THREE.Box3().setFromObject(target);
+            const sz = new THREE.Vector3(); 
+            bboxTmp.getSize(sz);
+            const maxDimNow = Math.max(sz.x, sz.y, sz.z) || 1;
+            const f = targetMaxDimMeters / maxDimNow;
+            if (Number.isFinite(f) && f > 0) { 
+              target.scale.multiplyScalar(f); 
+              modelScaleApplied = true; 
+              console.log('[Place] applied targetMaxDim scale', f, 'target=', targetMaxDimMeters, 'current=', maxDimNow); 
+            }
+          }
+        } catch(_){ }
+        
+        // Apply manual scale parameter if provided
+        try {
+          const sp = url.searchParams.get('scale');
+          if (sp != null) {
+            const sf = parseFloat(sp);
+            if (Number.isFinite(sf) && sf > 0) { 
+              target.scale.setScalar(sf); 
+              console.log('[Place] applied scale param', sf); 
+            }
+          }
+        } catch(_) {}
+      }
+      
       if (reticle.visible) {
         target.position.copy(reticle.position);
         target.quaternion.copy(reticle.quaternion);
@@ -295,18 +318,21 @@
         target.position.copy(camera.position).add(dir.multiplyScalar(1));
         target.quaternion.copy(camera.quaternion);
       }
-      target.position.y += 0.05;
-      target.visible = true;
-      if (target === model) {
-        // Keep model at authoring scale (1 unit = 1 meter). Optional override via ?scale=FLOAT
+      
+      // Adjust Y position to account for object height to center on reticle
+      if (target === model && modelLoaded) {
         try {
-          const sp = url.searchParams.get('scale');
-          if (sp != null) {
-            const sf = parseFloat(sp);
-            if (Number.isFinite(sf) && sf > 0) { model.scale.setScalar(sf); console.log('[Place] applied scale param', sf); }
-          }
+          const bbox = new THREE.Box3().setFromObject(target);
+          const size = new THREE.Vector3();
+          bbox.getSize(size);
+          // Center the object vertically on the reticle by offsetting by half the height
+          target.position.y += size.y / 2;
         } catch(_) {}
+      } else {
+        target.position.y += 0.05;
       }
+      
+      target.visible = true;
       console.log('[Place] placed at', target.position);
     }
 
