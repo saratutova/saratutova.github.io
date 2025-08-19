@@ -16,7 +16,7 @@
 <body>
   <div id="overlay" style="position:fixed; inset:0; z-index: 20; pointer-events:auto;">
     <div id="hint">Tap Start AR, then Place.</div>
-    <div id="build">xr-min build 28</div>
+    <div id="build">xr-min build 29</div>
     <div id="ui">
       <button id="start">Start AR</button>
       <button id="place" disabled>Place</button>
@@ -106,6 +106,7 @@
     // Load GLB model by default
     let model = null; let modelLoaded = false; let modelOriginalMaxDim = null; let modelScaleApplied = false;
     let originalModelDimensions = null; // Store original dimensions to prevent scaling issues
+    let originalModelClone = null; // Store a clean copy of the original model
 
     async function initModelLoader() {
       async function loadScript(url) {
@@ -156,14 +157,15 @@
                  scene.add(model);
                  modelLoaded = true;
                  
-                 // Store the original model dimensions to prevent scaling issues
+                 // Store the original model dimensions and a clean copy
                  try { 
                    const bb = new THREE.Box3().setFromObject(model); 
                    const szz = new THREE.Vector3(); 
                    bb.getSize(szz); 
                    originalModelDimensions = { x: szz.x, y: szz.y, z: szz.z };
+                   originalModelClone = model.clone(true); // Store a clean copy
                    console.log('[Model] GLB loaded via A-Frame fallback', glbUrl, 'final size m=', originalModelDimensions);
-                   console.log('[Model] Original dimensions stored for consistent scaling');
+                   console.log('[Model] Original dimensions and clean copy stored');
                  } catch(_) { console.log('[Model] GLB loaded via A-Frame fallback', glbUrl); }
                 done(true);
               } catch (err) { console.log('[Model] A-Frame fallback failed after load', err); done(false); }
@@ -244,14 +246,15 @@
           scene.add(model);
           modelLoaded = true;
           
-          // Store the original model dimensions to prevent scaling issues
+          // Store the original model dimensions and a clean copy
           try { 
             const bb = new THREE.Box3().setFromObject(model); 
             const szz = new THREE.Vector3(); 
             bb.getSize(szz); 
             originalModelDimensions = { x: szz.x, y: szz.y, z: szz.z };
+            originalModelClone = model.clone(true); // Store a clean copy
             console.log('[Model] GLB loaded', resolvedModel, 'final size m=', originalModelDimensions);
-            console.log('[Model] Original dimensions stored for consistent scaling');
+            console.log('[Model] Original dimensions and clean copy stored');
           } catch(_) { console.log('[Model] GLB loaded ' + resolvedModel); }
         }, undefined, async (err) => {
           console.log('[Model] load error ' + String(err));
@@ -294,35 +297,40 @@
       const target = (!forceCube && modelLoaded && model) ? model : cube;
       
                           // Apply scaling every time to ensure proper sizing
-        if (target === model) {
-          // Reset scale to original size first to avoid cumulative scaling
-          target.scale.setScalar(1);
-          console.log('[Place] reset scale to 1');
-          
-          // Log the original model size before any scaling
+        if (target === model && originalModelClone) {
+          // COMPLETELY RESTORE the model from the clean copy to prevent modification issues
           try {
+            // Remove the current model from the scene
+            scene.remove(model);
+            
+            // Create a fresh copy from the stored clean copy
+            model = originalModelClone.clone(true);
+            model.visible = false;
+            model.renderOrder = 9999;
+            model.traverse((child)=>{ if (child.material){ child.material.depthTest=true; child.material.depthWrite=true; child.material.needsUpdate=true; } });
+            scene.add(model);
+            target = model; // Update the target reference
+            
+            console.log('[Place] RESTORED model from clean copy to prevent modification issues');
+            
+            // Log the restored model size
             const bboxOriginal = new THREE.Box3().setFromObject(target);
             const sizeOriginal = new THREE.Vector3();
             bboxOriginal.getSize(sizeOriginal);
-            console.log('[Place] ORIGINAL model size (before scaling):', sizeOriginal);
-            console.log('[Place] ORIGINAL model dimensions: X=', sizeOriginal.x.toFixed(3), 'm, Y=', sizeOriginal.y.toFixed(3), 'm, Z=', sizeOriginal.z.toFixed(3), 'm');
-          } catch(_) {}
+            console.log('[Place] RESTORED model size:', sizeOriginal);
+            console.log('[Place] RESTORED model dimensions: X=', sizeOriginal.x.toFixed(3), 'm, Y=', sizeOriginal.y.toFixed(3), 'm, Z=', sizeOriginal.z.toFixed(3), 'm');
+          } catch(_) {
+            console.log('[Place] Failed to restore model from clean copy, using existing model');
+          }
           
-          // FORCE the model to be at real 1:1 scale
-          // The model should always be 13.53m tall regardless of what happened to it
+          // FORCE the model to be at real 1:1 scale using original dimensions
           try {
             const expectedHeight = 13.53; // Real airplane height in meters
-            
-            // Calculate current height after resetting scale
-            const bboxCurrent = new THREE.Box3().setFromObject(target);
-            const sizeCurrent = new THREE.Vector3();
-            bboxCurrent.getSize(sizeCurrent);
-            
-            const scaleFactor = expectedHeight / sizeCurrent.y;
+            const scaleFactor = expectedHeight / originalModelDimensions.y;
             
             if (Number.isFinite(scaleFactor) && scaleFactor > 0) {
               target.scale.setScalar(scaleFactor);
-              console.log('[Place] FORCED real scale - current height:', sizeCurrent.y.toFixed(3), 'm, expected:', expectedHeight, 'm');
+              console.log('[Place] FORCED real scale using original dimensions - original height:', originalModelDimensions.y.toFixed(3), 'm, expected:', expectedHeight, 'm');
               console.log('[Place] Applied scale factor:', scaleFactor.toFixed(6), 'to achieve real 1:1 scale');
             }
           } catch(_) {}
@@ -392,61 +400,53 @@
         target.quaternion.copy(camera.quaternion);
       }
       
-             // Position the object so its FRONT-BOTTOM corner is at the reticle center
-       if (target === model && modelLoaded) {
-         try {
-           // Use CURRENT model dimensions for positioning - the model may have been modified
-           // Calculate current dimensions after scaling to get accurate positioning
-           const bbox = new THREE.Box3().setFromObject(target);
-           const size = new THREE.Vector3();
-           bbox.getSize(size);
-           
-           const finalDimensions = {
-             x: size.x,
-             y: size.y,
-             z: size.z
-           };
-           
-           // The object is currently positioned with its pivot at the reticle center
-           // We want the FRONT-BOTTOM corner to be at the reticle center
-           // This means we need to:
-           // 1. Move it BACKWARD by half the depth (Z axis) to get front edge at reticle
-           // 2. Move it DOWN by half the height (Y axis) to get bottom edge at floor
-           // 3. Keep it centered on X axis (width)
-           
-           const offsetZ = finalDimensions.z / 2;  // Move backward to get front edge at reticle
-           const offsetY = finalDimensions.y / 2;  // Move down to get bottom edge at floor
-           
-           target.position.z -= offsetZ;  // Move backward (negative Z) to get front at reticle
-           target.position.y -= offsetY;  // Move down (negative Y) to get bottom at floor
+                          // Position the object so its FRONT-BOTTOM corner is at the reticle center
+        if (target === model && modelLoaded) {
+          try {
+            // Get current model dimensions after scaling
+            const bbox = new THREE.Box3().setFromObject(target);
+            const size = new THREE.Vector3();
+            bbox.getSize(size);
+            
+            console.log('[Place] POSITIONING details:');
+            console.log('[Place] - Object height:', size.y.toFixed(3), 'm');
+            console.log('[Place] - Object width:', size.x.toFixed(3), 'm');
+            console.log('[Place] - Object depth:', size.z.toFixed(3), 'm');
+            console.log('[Place] - Reticle position (where you tapped):', reticle.position);
+            
+            // SIMPLE positioning: Move the object so its bottom touches the floor
+            // and its front edge is at the reticle position
+            const offsetY = size.y / 2;  // Move down by half height to get bottom at floor
+            const offsetZ = size.z / 2;  // Move backward by half depth to get front at reticle
+            
+            target.position.y -= offsetY;  // Move down so bottom touches floor
+            target.position.z -= offsetZ;  // Move backward so front edge is at reticle
+            
+            console.log('[Place] - Applied Y offset (down):', offsetY.toFixed(3), 'm to get bottom at floor');
+            console.log('[Place] - Applied Z offset (backward):', offsetZ.toFixed(3), 'm to get front at reticle');
+            console.log('[Place] - Final pivot position:', target.position);
+            
+            // Verify final positioning
+            const finalBottomY = target.position.y - size.y/2;
+            const finalFrontZ = target.position.z + size.z/2;
+            console.log('[Place] - Object bottom now at Y:', finalBottomY.toFixed(3), 'm (should be at floor)');
+            console.log('[Place] - Object front edge now at Z:', finalFrontZ.toFixed(3), 'm (should be at reticle)');
+            console.log('[Place] - Object top now at Y:', (target.position.y + size.y/2).toFixed(3), 'm');
           
-           console.log('[Place] POSITIONING details:');
-           console.log('[Place] - Object height:', finalDimensions.y.toFixed(3), 'm');
-           console.log('[Place] - Object width:', finalDimensions.x.toFixed(3), 'm');
-           console.log('[Place] - Object depth:', finalDimensions.z.toFixed(3), 'm');
-           console.log('[Place] - Reticle position (where you tapped):', reticle.position);
-           console.log('[Place] - Model pivot was at reticle center');
-           console.log('[Place] - Applied Z offset (backward):', offsetZ.toFixed(3), 'm to get front edge at reticle');
-           console.log('[Place] - Applied Y offset (down):', offsetY.toFixed(3), 'm to get bottom edge');
-           console.log('[Place] - Final pivot position:', target.position);
-           console.log('[Place] - Object front edge now at Z:', (target.position.z + finalDimensions.z/2).toFixed(3), 'm (should be at reticle)');
-           console.log('[Place] - Object bottom now at Y:', (target.position.y - finalDimensions.y/2).toFixed(3), 'm (should be at floor)');
-           console.log('[Place] - Object top now at Y:', (target.position.y + finalDimensions.y/2).toFixed(3), 'm');
+                       // Scale verification
+            console.log('[Place] SCALE VERIFICATION:');
+            console.log('[Place] - Your baby bed is ~0.85m tall');
+            console.log('[Place] - This airplane model is', size.y.toFixed(2), 'm tall');
+            console.log('[Place] - The airplane should be', (size.y/0.85).toFixed(1), 'times taller than your baby bed');
+            console.log('[Place] - This is REAL 1:1 scale - forced scaling applied');
            
-           // Add scale verification
-           console.log('[Place] SCALE VERIFICATION:');
-           console.log('[Place] - Your baby bed is ~0.85m tall');
-           console.log('[Place] - This airplane model is', finalDimensions.y.toFixed(2), 'm tall');
-           console.log('[Place] - The airplane should be', (finalDimensions.y/0.85).toFixed(1), 'times taller than your baby bed');
-           console.log('[Place] - This is REAL 1:1 scale - forced scaling applied');
-           
-           // Add distance verification
-           console.log('[Place] DISTANCE VERIFICATION:');
-           console.log('[Place] - Reticle position (world coordinates):', reticle.position);
-           console.log('[Place] - Camera position (world coordinates):', camera.position);
-           const distanceToReticle = camera.position.distanceTo(reticle.position);
-           console.log('[Place] - Distance from camera to reticle:', distanceToReticle.toFixed(3), 'm');
-           console.log('[Place] - This is a REAL distance in meters from the AR system');
+                       // Distance verification
+            console.log('[Place] DISTANCE VERIFICATION:');
+            console.log('[Place] - Reticle position (world coordinates):', reticle.position);
+            console.log('[Place] - Camera position (world coordinates):', camera.position);
+            const distanceToReticle = camera.position.distanceTo(reticle.position);
+            console.log('[Place] - Distance from camera to reticle:', distanceToReticle.toFixed(3), 'm');
+            console.log('[Place] - This is a REAL distance in meters from the AR system');
          } catch(_) {}
        } else {
          target.position.y += 0.05;
