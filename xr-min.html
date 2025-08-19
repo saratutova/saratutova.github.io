@@ -16,7 +16,7 @@
 <body>
   <div id="overlay" style="position:fixed; inset:0; z-index: 20; pointer-events:auto;">
     <div id="hint">Tap Start AR, then Place.</div>
-    <div id="build">xr-min build 22</div>
+    <div id="build">xr-min build 23</div>
     <div id="ui">
       <button id="start">Start AR</button>
       <button id="place" disabled>Place</button>
@@ -374,7 +374,7 @@
         target.quaternion.copy(camera.quaternion);
       }
       
-             // Position the object so its pivot (front/floor point) is at the reticle center
+             // Position the object so its FRONT-BOTTOM corner is at the reticle center
        if (target === model && modelLoaded) {
          try {
            const bbox = new THREE.Box3().setFromObject(target);
@@ -382,22 +382,28 @@
            bbox.getSize(size);
            
            // The object is currently positioned with its pivot at the reticle center
-           // Since the pivot should be at the front and floor level of the airplane,
-           // we need to adjust the position so the pivot point is correctly placed
+           // We want the FRONT-BOTTOM corner to be at the reticle center
+           // This means we need to:
+           // 1. Move it FORWARD by half the depth (Z axis) to get front edge
+           // 2. Move it DOWN by half the height (Y axis) to get bottom edge
+           // 3. Keep it centered on X axis (width)
            
-           // For now, we'll position it so the bottom touches the floor
-           // The pivot will be at the center of the object, but we'll adjust Y to floor level
-           const offsetY = size.y / 2;
-           target.position.y -= offsetY;
+           const offsetZ = size.z / 2;  // Move forward to front edge
+           const offsetY = size.y / 2;  // Move down to bottom edge
+           
+           target.position.z += offsetZ;  // Move forward (positive Z)
+           target.position.y -= offsetY;  // Move down (negative Y)
            
            console.log('[Place] POSITIONING details:');
            console.log('[Place] - Object height:', size.y.toFixed(3), 'm');
            console.log('[Place] - Object width:', size.x.toFixed(3), 'm');
            console.log('[Place] - Object depth:', size.z.toFixed(3), 'm');
-           console.log('[Place] - Reticle Y position (where you tapped):', reticle.position.y.toFixed(3), 'm');
-           console.log('[Place] - Model pivot positioned at reticle center');
-           console.log('[Place] - Applied Y offset:', offsetY.toFixed(3), 'm (half height) to touch floor');
-           console.log('[Place] - Final pivot Y position:', target.position.y.toFixed(3), 'm');
+           console.log('[Place] - Reticle position (where you tapped):', reticle.position);
+           console.log('[Place] - Model pivot was at reticle center');
+           console.log('[Place] - Applied Z offset (forward):', offsetZ.toFixed(3), 'm to get front edge');
+           console.log('[Place] - Applied Y offset (down):', offsetY.toFixed(3), 'm to get bottom edge');
+           console.log('[Place] - Final pivot position:', target.position);
+           console.log('[Place] - Object front edge now at Z:', (target.position.z + size.z/2).toFixed(3), 'm (should be at reticle)');
            console.log('[Place] - Object bottom now at Y:', (target.position.y - size.y/2).toFixed(3), 'm (should be at floor)');
            console.log('[Place] - Object top now at Y:', (target.position.y + size.y/2).toFixed(3), 'm');
            
