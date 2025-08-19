@@ -16,7 +16,7 @@
 <body>
   <div id="overlay" style="position:fixed; inset:0; z-index: 20; pointer-events:auto;">
     <div id="hint">Tap Start AR, then Place.</div>
-    <div id="build">xr-min build 31</div>
+    <div id="build">xr-min build 32</div>
     <div id="ui">
       <button id="start">Start AR</button>
       <button id="place" disabled>Place</button>
@@ -302,27 +302,28 @@
           target.scale.setScalar(1);
           console.log('[Place] reset scale to 1');
           
-          // FORCE the model to be at real 1:1 scale using original dimensions
+          // FORCE the model to be at MUCH LARGER scale since it's appearing too small
           try {
             if (originalModelDimensions) {
-              const expectedHeight = 13.53; // Real airplane height in meters
+              // TESTING: Make the airplane 5x larger than real scale since it appears too small
+              const expectedHeight = 13.53 * 5; // 5x real airplane height = 67.65m
               const scaleFactor = expectedHeight / originalModelDimensions.y;
               
               if (Number.isFinite(scaleFactor) && scaleFactor > 0) {
                 target.scale.setScalar(scaleFactor);
-                console.log('[Place] FORCED real scale using original dimensions - original height:', originalModelDimensions.y.toFixed(3), 'm, expected:', expectedHeight, 'm');
-                console.log('[Place] Applied scale factor:', scaleFactor.toFixed(6), 'to achieve real 1:1 scale');
+                console.log('[Place] TESTING 5X SCALE - original height:', originalModelDimensions.y.toFixed(3), 'm, expected:', expectedHeight, 'm');
+                console.log('[Place] Applied scale factor:', scaleFactor.toFixed(6), 'to make airplane 5x real size for testing');
               }
             } else {
               console.log('[Place] No original dimensions available, using current model size');
               const bbox = new THREE.Box3().setFromObject(target);
               const size = new THREE.Vector3();
               bbox.getSize(size);
-              const expectedHeight = 13.53;
+              const expectedHeight = 13.53 * 5; // 5x scale
               const scaleFactor = expectedHeight / size.y;
               if (Number.isFinite(scaleFactor) && scaleFactor > 0) {
                 target.scale.setScalar(scaleFactor);
-                console.log('[Place] Applied scale factor based on current size:', scaleFactor.toFixed(6));
+                console.log('[Place] Applied 5x scale factor based on current size:', scaleFactor.toFixed(6));
               }
             }
           } catch(_) {
@@ -413,10 +414,11 @@
             const offsetY = size.y / 2;  // Move down by half height to get bottom at floor
             const offsetZ = size.z / 2;  // Move backward by half depth to get front at reticle
             
-            target.position.y -= offsetY;  // Move down so bottom touches floor
+            // FIX: Move UP instead of down to get bottom at floor level
+            target.position.y += offsetY;  // Move UP so bottom touches floor at reticle level
             target.position.z -= offsetZ;  // Move backward so front edge is at reticle
             
-            console.log('[Place] - Applied Y offset (down):', offsetY.toFixed(3), 'm to get bottom at floor');
+            console.log('[Place] - Applied Y offset (UP):', offsetY.toFixed(3), 'm to get bottom at floor level');
             console.log('[Place] - Applied Z offset (backward):', offsetZ.toFixed(3), 'm to get front at reticle');
             console.log('[Place] - Final pivot position:', target.position);
             
@@ -432,7 +434,7 @@
             console.log('[Place] - Your baby bed is ~0.85m tall');
             console.log('[Place] - This airplane model is', size.y.toFixed(2), 'm tall');
             console.log('[Place] - The airplane should be', (size.y/0.85).toFixed(1), 'times taller than your baby bed');
-            console.log('[Place] - This is REAL 1:1 scale - forced scaling applied');
+            console.log('[Place] - This is 5X TESTING SCALE - airplane should be HUGE now');
            
                        // Distance verification
             console.log('[Place] DISTANCE VERIFICATION:');
