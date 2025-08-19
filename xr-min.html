@@ -16,7 +16,7 @@
 <body>
   <div id="overlay" style="position:fixed; inset:0; z-index: 20; pointer-events:auto;">
     <div id="hint">Tap Start AR, then Place.</div>
-    <div id="build">xr-min build 18</div>
+    <div id="build">xr-min build 19</div>
     <div id="ui">
       <button id="start">Start AR</button>
       <button id="place" disabled>Place</button>
@@ -278,10 +278,19 @@
          target.scale.setScalar(1);
          console.log('[Place] reset scale to 1');
          
+         // Log the original model size before any scaling
+         try {
+           const bboxOriginal = new THREE.Box3().setFromObject(target);
+           const sizeOriginal = new THREE.Vector3();
+           bboxOriginal.getSize(sizeOriginal);
+           console.log('[Place] ORIGINAL model size (before scaling):', sizeOriginal);
+           console.log('[Place] ORIGINAL model dimensions: X=', sizeOriginal.x.toFixed(3), 'm, Y=', sizeOriginal.y.toFixed(3), 'm, Z=', sizeOriginal.z.toFixed(3), 'm');
+         } catch(_) {}
+         
          try { 
            if (unitScale && unitScale !== 1) { 
              target.scale.multiplyScalar(unitScale); 
-             console.log('[Place] applied unitScale', unitScale); 
+             console.log('[Place] applied unitScale:', unitScale, 'new scale:', target.scale);
            } else {
              console.log('[Place] no unitScale applied, unitScale =', unitScale);
            }
@@ -296,7 +305,8 @@
              const f = targetMaxDimMeters / maxDimNow;
              if (Number.isFinite(f) && f > 0) { 
                target.scale.multiplyScalar(f); 
-               console.log('[Place] applied targetMaxDim scale', f, 'target=', targetMaxDimMeters, 'current=', maxDimNow); 
+               console.log('[Place] applied targetMaxDim scale:', f.toFixed(6), 'target size:', targetMaxDimMeters, 'm, current max dim:', maxDimNow.toFixed(3), 'm');
+               console.log('[Place] scale after targetMaxDim:', target.scale);
              }
            } else {
              console.log('[Place] no targetMaxDimMeters applied, value =', targetMaxDimMeters);
@@ -310,7 +320,7 @@
              const sf = parseFloat(sp);
              if (Number.isFinite(sf) && sf > 0) { 
                target.scale.setScalar(sf); 
-               console.log('[Place] applied scale param', sf); 
+               console.log('[Place] applied scale param:', sf, 'new scale:', target.scale);
              }
            }
          } catch(_) {}
@@ -320,7 +330,15 @@
            const bboxFinal = new THREE.Box3().setFromObject(target);
            const sizeFinal = new THREE.Vector3();
            bboxFinal.getSize(sizeFinal);
-           console.log('[Place] final scale:', target.scale, 'final size:', sizeFinal);
+           console.log('[Place] FINAL scale after all scaling:', target.scale);
+           console.log('[Place] FINAL model size (after scaling):', sizeFinal);
+           console.log('[Place] FINAL model dimensions: X=', sizeFinal.x.toFixed(3), 'm, Y=', sizeFinal.y.toFixed(3), 'm, Z=', sizeFinal.z.toFixed(3), 'm');
+           
+           // Calculate what the object should look like in real life
+           console.log('[Place] REAL-WORLD comparison:');
+           console.log('[Place] - Your model is now', sizeFinal.x.toFixed(2), 'm wide,', sizeFinal.y.toFixed(2), 'm tall,', sizeFinal.z.toFixed(2), 'm deep');
+           console.log('[Place] - A baby bed is typically ~0.7m × 0.4m × 1.4m');
+           console.log('[Place] - Your model should be', (sizeFinal.x/0.7).toFixed(1), 'times wider than a baby bed');
          } catch(_) {}
        }
       
@@ -345,9 +363,15 @@
            // Since bbox.min.y is the local bottom, and we want the bottom at the surface,
            // we need to offset by the height of the object
            const objectHeight = size.y;
-           target.position.y -= objectHeight / 2;
+           const offsetY = objectHeight / 2;
+           target.position.y -= offsetY;
            
-           console.log('[Place] positioned model, height:', objectHeight, 'offset:', objectHeight/2, 'final Y:', target.position.y);
+           console.log('[Place] POSITIONING details:');
+           console.log('[Place] - Object height:', objectHeight.toFixed(3), 'm');
+           console.log('[Place] - Y offset applied:', offsetY.toFixed(3), 'm');
+           console.log('[Place] - Reticle Y position:', (target.position.y + offsetY).toFixed(3), 'm');
+           console.log('[Place] - Final object Y position:', target.position.y.toFixed(3), 'm');
+           console.log('[Place] - Object bottom now at surface level (Y = 0)');
          } catch(_) {}
        } else {
          target.position.y += 0.05;
