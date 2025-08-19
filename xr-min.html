@@ -16,7 +16,7 @@
 <body>
   <div id="overlay" style="position:fixed; inset:0; z-index: 20; pointer-events:auto;">
     <div id="hint">Tap Start AR, then Place.</div>
-    <div id="build">xr-min build 34</div>
+    <div id="build">xr-min build 35</div>
     <div id="ui">
       <button id="start">Start AR</button>
       <button id="place" disabled>Place</button>
@@ -413,9 +413,9 @@
             // We need to calculate where the front-bottom corner actually is and move the model accordingly
             
             // Get the bounding box to find the actual front, bottom, and extents
-            const bbox = new THREE.Box3().setFromObject(target);
-            const min = bbox.min; // Minimum extents (back, bottom, left)
-            const max = bbox.max; // Maximum extents (front, top, right)
+            const positionBbox = new THREE.Box3().setFromObject(target);
+            const min = positionBbox.min; // Minimum extents (back, bottom, left)
+            const max = positionBbox.max; // Maximum extents (front, top, right)
             
             // Calculate offsets to position front-bottom corner at reticle
             // Front = maximum Z, Bottom = minimum Y
@@ -441,20 +441,20 @@
             console.log('[Place] - Reticle position (target):', reticle.position);
             
             // Calculate where the front-bottom corner actually is now
-            const newBbox = new THREE.Box3().setFromObject(target);
+            const verifyBbox = new THREE.Box3().setFromObject(target);
             const frontBottomCorner = {
                 x: target.position.x, // X stays centered
-                y: newBbox.min.y,     // Bottom of the airplane
-                z: newBbox.max.z      // Front of the airplane
+                y: verifyBbox.min.y,     // Bottom of the airplane
+                z: verifyBbox.max.z      // Front of the airplane
             };
             
             console.log('[Place] - VERIFICATION: Front-bottom corner now at:', frontBottomCorner);
             console.log('[Place] - Should match reticle position:', reticle.position);
             console.log('[Place] - Airplane extends from front-bottom to back-top');
-            console.log('[Place] - Bottom at Y:', newBbox.min.y.toFixed(3), 'm (should be at reticle Y)');
-            console.log('[Place] - Top at Y:', newBbox.max.y.toFixed(3), 'm');
-            console.log('[Place] - Front at Z:', newBbox.max.z.toFixed(3), 'm (should be at reticle Z)');
-            console.log('[Place] - Back at Z:', newBbox.min.z.toFixed(3), 'm');
+            console.log('[Place] - Bottom at Y:', verifyBbox.min.y.toFixed(3), 'm (should be at reticle Y)');
+            console.log('[Place] - Top at Y:', verifyBbox.max.y.toFixed(3), 'm');
+            console.log('[Place] - Front at Z:', verifyBbox.max.z.toFixed(3), 'm (should be at reticle Z)');
+            console.log('[Place] - Back at Z:', verifyBbox.min.z.toFixed(3), 'm');
           
                        // Scale verification
             console.log('[Place] SCALE VERIFICATION:');
