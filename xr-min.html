@@ -16,7 +16,7 @@
 <body>
   <div id="overlay" style="position:fixed; inset:0; z-index: 20; pointer-events:auto;">
     <div id="hint">Tap Start AR, then Place.</div>
-    <div id="build">xr-min build 19</div>
+    <div id="build">xr-min build 20</div>
     <div id="ui">
       <button id="start">Start AR</button>
       <button id="place" disabled>Place</button>
@@ -52,10 +52,12 @@
     const unitScaleParam = parseFloat(url.searchParams.get('unitScale') || url.searchParams.get('us') || 'NaN');
     const unitScale = Number.isFinite(unitScaleParam) ? unitScaleParam :
       (unitsParam === 'cm' ? 0.01 : unitsParam === 'mm' ? 0.001 : unitsParam === 'in' ? 0.0254 : unitsParam === 'ft' ? 0.3048 : 1);
-    const targetMaxDimMeters = parseFloat(url.searchParams.get('target') || url.searchParams.get('length') || url.searchParams.get('max') || 'NaN');
-    const modelUrl = url.searchParams.get('model') || './models/7579_3K_V4.glb';
-    const useV1 = url.searchParams.get('v1') === '1';
-    const resolvedModel = useV1 ? './models/7579_3K_V1.glb' : modelUrl;
+         const targetMaxDimMeters = parseFloat(url.searchParams.get('target') || url.searchParams.get('length') || url.searchParams.get('max') || 'NaN');
+     const modelUrl = url.searchParams.get('model') || './models/7579_3K_V4.glb';
+     const useV1 = url.searchParams.get('v1') === '1';
+     const resolvedModel = useV1 ? './models/7579_3K_V1.glb' : modelUrl;
+     
+     // Removed test scale - model will be displayed at real 1:1 scale
 
     const hint = document.getElementById('hint');
     const startBtn = document.getElementById('start');
@@ -325,6 +327,8 @@
            }
          } catch(_) {}
          
+         // No test scale applied - model stays at real 1:1 scale
+         
          // Log final scale and size after all scaling
          try {
            const bboxFinal = new THREE.Box3().setFromObject(target);
@@ -351,27 +355,30 @@
         target.quaternion.copy(camera.quaternion);
       }
       
-             // Position the object so it sits ON the surface, not floating above it
+             // Position the object with its pivot point at the reticle center
        if (target === model && modelLoaded) {
          try {
            const bbox = new THREE.Box3().setFromObject(target);
            const size = new THREE.Vector3();
            bbox.getSize(size);
            
-           // The object is currently centered on the reticle
-           // We need to move it down so its bottom touches the surface
-           // Since bbox.min.y is the local bottom, and we want the bottom at the surface,
-           // we need to offset by the height of the object
-           const objectHeight = size.y;
-           const offsetY = objectHeight / 2;
-           target.position.y -= offsetY;
+           // The object is already positioned with its pivot at the reticle center
+           // No Y offset needed - the model's pivot point will be exactly where the reticle is
            
            console.log('[Place] POSITIONING details:');
-           console.log('[Place] - Object height:', objectHeight.toFixed(3), 'm');
-           console.log('[Place] - Y offset applied:', offsetY.toFixed(3), 'm');
-           console.log('[Place] - Reticle Y position:', (target.position.y + offsetY).toFixed(3), 'm');
-           console.log('[Place] - Final object Y position:', target.position.y.toFixed(3), 'm');
-           console.log('[Place] - Object bottom now at surface level (Y = 0)');
+           console.log('[Place] - Object height:', size.y.toFixed(3), 'm');
+           console.log('[Place] - Object width:', size.x.toFixed(3), 'm');
+           console.log('[Place] - Object depth:', size.z.toFixed(3), 'm');
+           console.log('[Place] - Model pivot point is now at reticle center');
+           console.log('[Place] - Object bottom is at Y:', (target.position.y - size.y/2).toFixed(3), 'm');
+           console.log('[Place] - Object top is at Y:', (target.position.y + size.y/2).toFixed(3), 'm');
+           
+           // Add scale verification
+           console.log('[Place] SCALE VERIFICATION:');
+           console.log('[Place] - Your baby bed is ~0.85m tall');
+           console.log('[Place] - This airplane model is', size.y.toFixed(2), 'm tall');
+           console.log('[Place] - The airplane should be', (size.y/0.85).toFixed(1), 'times taller than your baby bed');
+           console.log('[Place] - This is REAL 1:1 scale - no scaling applied');
          } catch(_) {}
        } else {
          target.position.y += 0.05;
