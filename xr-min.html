@@ -16,7 +16,7 @@
 <body>
   <div id="overlay" style="position:fixed; inset:0; z-index: 20; pointer-events:auto;">
     <div id="hint">Tap Start AR, then Place.</div>
-    <div id="build">xr-min build 29</div>
+    <div id="build">xr-min build 31</div>
     <div id="ui">
       <button id="start">Start AR</button>
       <button id="place" disabled>Place</button>
@@ -297,43 +297,37 @@
       const target = (!forceCube && modelLoaded && model) ? model : cube;
       
                           // Apply scaling every time to ensure proper sizing
-        if (target === model && originalModelClone) {
-          // COMPLETELY RESTORE the model from the clean copy to prevent modification issues
-          try {
-            // Remove the current model from the scene
-            scene.remove(model);
-            
-            // Create a fresh copy from the stored clean copy
-            model = originalModelClone.clone(true);
-            model.visible = false;
-            model.renderOrder = 9999;
-            model.traverse((child)=>{ if (child.material){ child.material.depthTest=true; child.material.depthWrite=true; child.material.needsUpdate=true; } });
-            scene.add(model);
-            target = model; // Update the target reference
-            
-            console.log('[Place] RESTORED model from clean copy to prevent modification issues');
-            
-            // Log the restored model size
-            const bboxOriginal = new THREE.Box3().setFromObject(target);
-            const sizeOriginal = new THREE.Vector3();
-            bboxOriginal.getSize(sizeOriginal);
-            console.log('[Place] RESTORED model size:', sizeOriginal);
-            console.log('[Place] RESTORED model dimensions: X=', sizeOriginal.x.toFixed(3), 'm, Y=', sizeOriginal.y.toFixed(3), 'm, Z=', sizeOriginal.z.toFixed(3), 'm');
-          } catch(_) {
-            console.log('[Place] Failed to restore model from clean copy, using existing model');
-          }
+        if (target === model) {
+          // Reset scale and apply proper scaling
+          target.scale.setScalar(1);
+          console.log('[Place] reset scale to 1');
           
           // FORCE the model to be at real 1:1 scale using original dimensions
           try {
-            const expectedHeight = 13.53; // Real airplane height in meters
-            const scaleFactor = expectedHeight / originalModelDimensions.y;
-            
-            if (Number.isFinite(scaleFactor) && scaleFactor > 0) {
-              target.scale.setScalar(scaleFactor);
-              console.log('[Place] FORCED real scale using original dimensions - original height:', originalModelDimensions.y.toFixed(3), 'm, expected:', expectedHeight, 'm');
-              console.log('[Place] Applied scale factor:', scaleFactor.toFixed(6), 'to achieve real 1:1 scale');
+            if (originalModelDimensions) {
+              const expectedHeight = 13.53; // Real airplane height in meters
+              const scaleFactor = expectedHeight / originalModelDimensions.y;
+              
+              if (Number.isFinite(scaleFactor) && scaleFactor > 0) {
+                target.scale.setScalar(scaleFactor);
+                console.log('[Place] FORCED real scale using original dimensions - original height:', originalModelDimensions.y.toFixed(3), 'm, expected:', expectedHeight, 'm');
+                console.log('[Place] Applied scale factor:', scaleFactor.toFixed(6), 'to achieve real 1:1 scale');
+              }
+            } else {
+              console.log('[Place] No original dimensions available, using current model size');
+              const bbox = new THREE.Box3().setFromObject(target);
+              const size = new THREE.Vector3();
+              bbox.getSize(size);
+              const expectedHeight = 13.53;
+              const scaleFactor = expectedHeight / size.y;
+              if (Number.isFinite(scaleFactor) && scaleFactor > 0) {
+                target.scale.setScalar(scaleFactor);
+                console.log('[Place] Applied scale factor based on current size:', scaleFactor.toFixed(6));
+              }
             }
-          } catch(_) {}
+          } catch(_) {
+            console.log('[Place] Failed to apply scaling');
+          }
           
           try { 
             if (unitScale && unitScale !== 1) { 
@@ -453,7 +447,15 @@
        }
       
       target.visible = true;
-      console.log('[Place] placed at', target.position);
+      console.log('[Place] *** OBJECT MADE VISIBLE *** placed at', target.position);
+      console.log('[Place] *** OBJECT SCALE:', target.scale, '***');
+      
+      // Debug: Check if object is actually in the scene
+      if (target.parent) {
+        console.log('[Place] *** OBJECT IS IN SCENE ***');
+      } else {
+        console.log('[Place] *** ERROR: OBJECT NOT IN SCENE ***');
+      }
     }
 
     function onXRFrame(t, frame){
