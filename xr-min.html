@@ -16,7 +16,7 @@
 <body>
   <div id="overlay" style="position:fixed; inset:0; z-index: 20; pointer-events:auto;">
     <div id="hint">Tap Start AR, then Place.</div>
-    <div id="build">xr-min build 20</div>
+    <div id="build">xr-min build 21</div>
     <div id="ui">
       <button id="start">Start AR</button>
       <button id="place" disabled>Place</button>
@@ -355,23 +355,29 @@
         target.quaternion.copy(camera.quaternion);
       }
       
-             // Position the object with its pivot point at the reticle center
+             // Position the object so its BOTTOM touches the floor, not its pivot point
        if (target === model && modelLoaded) {
          try {
            const bbox = new THREE.Box3().setFromObject(target);
            const size = new THREE.Vector3();
            bbox.getSize(size);
            
-           // The object is already positioned with its pivot at the reticle center
-           // No Y offset needed - the model's pivot point will be exactly where the reticle is
+           // The object is currently positioned with its pivot at the reticle center
+           // We need to move it DOWN so its bottom touches the floor
+           // Since the pivot is at the center, we need to offset by half the height
+           const offsetY = size.y / 2;
+           target.position.y -= offsetY;
            
            console.log('[Place] POSITIONING details:');
            console.log('[Place] - Object height:', size.y.toFixed(3), 'm');
            console.log('[Place] - Object width:', size.x.toFixed(3), 'm');
            console.log('[Place] - Object depth:', size.z.toFixed(3), 'm');
-           console.log('[Place] - Model pivot point is now at reticle center');
-           console.log('[Place] - Object bottom is at Y:', (target.position.y - size.y/2).toFixed(3), 'm');
-           console.log('[Place] - Object top is at Y:', (target.position.y + size.y/2).toFixed(3), 'm');
+           console.log('[Place] - Reticle Y position (where you tapped):', reticle.position.y.toFixed(3), 'm');
+           console.log('[Place] - Model pivot was at reticle center');
+           console.log('[Place] - Applied Y offset:', offsetY.toFixed(3), 'm (half height)');
+           console.log('[Place] - Final pivot Y position:', target.position.y.toFixed(3), 'm');
+           console.log('[Place] - Object bottom now at Y:', (target.position.y - size.y/2).toFixed(3), 'm (should be at floor)');
+           console.log('[Place] - Object top now at Y:', (target.position.y + size.y/2).toFixed(3), 'm');
            
            // Add scale verification
            console.log('[Place] SCALE VERIFICATION:');
