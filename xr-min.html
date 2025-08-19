@@ -16,7 +16,7 @@
 <body>
   <div id="overlay" style="position:fixed; inset:0; z-index: 20; pointer-events:auto;">
     <div id="hint">Tap Start AR, then Place.</div>
-    <div id="build">xr-min build 25</div>
+    <div id="build">xr-min build 26</div>
     <div id="ui">
       <button id="start">Start AR</button>
       <button id="place" disabled>Place</button>
@@ -397,6 +397,7 @@
        if (target === model && modelLoaded && originalModelDimensions) {
          try {
            // Use stored original dimensions and current scale for positioning
+           // This ensures consistent positioning regardless of model modifications
            const finalDimensions = {
              x: originalModelDimensions.x * target.scale.x,
              y: originalModelDimensions.y * target.scale.y,
@@ -435,6 +436,14 @@
            console.log('[Place] - This airplane model is', finalDimensions.y.toFixed(2), 'm tall');
            console.log('[Place] - The airplane should be', (finalDimensions.y/0.85).toFixed(1), 'times taller than your baby bed');
            console.log('[Place] - This is REAL 1:1 scale - forced scaling applied');
+           
+           // Add distance verification
+           console.log('[Place] DISTANCE VERIFICATION:');
+           console.log('[Place] - Reticle position (world coordinates):', reticle.position);
+           console.log('[Place] - Camera position (world coordinates):', camera.position);
+           const distanceToReticle = camera.position.distanceTo(reticle.position);
+           console.log('[Place] - Distance from camera to reticle:', distanceToReticle.toFixed(3), 'm');
+           console.log('[Place] - This is a REAL distance in meters from the AR system');
          } catch(_) {}
        } else {
          target.position.y += 0.05;
