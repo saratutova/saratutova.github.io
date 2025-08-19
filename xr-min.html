@@ -16,7 +16,7 @@
 <body>
   <div id="overlay" style="position:fixed; inset:0; z-index: 20; pointer-events:auto;">
     <div id="hint">Tap Start AR, then Place.</div>
-    <div id="build">xr-min build 32</div>
+    <div id="build">xr-min build 33</div>
     <div id="ui">
       <button id="start">Start AR</button>
       <button id="place" disabled>Place</button>
@@ -302,28 +302,28 @@
           target.scale.setScalar(1);
           console.log('[Place] reset scale to 1');
           
-          // FORCE the model to be at MUCH LARGER scale since it's appearing too small
+          // FORCE the model to be at REAL 1:1 scale
           try {
             if (originalModelDimensions) {
-              // TESTING: Make the airplane 5x larger than real scale since it appears too small
-              const expectedHeight = 13.53 * 5; // 5x real airplane height = 67.65m
+              // Use real airplane scale - should be 13.53m tall (1:1 scale)
+              const expectedHeight = 13.53; // Real airplane height in meters
               const scaleFactor = expectedHeight / originalModelDimensions.y;
               
               if (Number.isFinite(scaleFactor) && scaleFactor > 0) {
                 target.scale.setScalar(scaleFactor);
-                console.log('[Place] TESTING 5X SCALE - original height:', originalModelDimensions.y.toFixed(3), 'm, expected:', expectedHeight, 'm');
-                console.log('[Place] Applied scale factor:', scaleFactor.toFixed(6), 'to make airplane 5x real size for testing');
+                console.log('[Place] REAL 1:1 SCALE - original height:', originalModelDimensions.y.toFixed(3), 'm, expected:', expectedHeight, 'm');
+                console.log('[Place] Applied scale factor:', scaleFactor.toFixed(6), 'to make airplane real 1:1 size');
               }
             } else {
               console.log('[Place] No original dimensions available, using current model size');
               const bbox = new THREE.Box3().setFromObject(target);
               const size = new THREE.Vector3();
               bbox.getSize(size);
-              const expectedHeight = 13.53 * 5; // 5x scale
+              const expectedHeight = 13.53; // Real scale
               const scaleFactor = expectedHeight / size.y;
               if (Number.isFinite(scaleFactor) && scaleFactor > 0) {
                 target.scale.setScalar(scaleFactor);
-                console.log('[Place] Applied 5x scale factor based on current size:', scaleFactor.toFixed(6));
+                console.log('[Place] Applied real scale factor based on current size:', scaleFactor.toFixed(6));
               }
             }
           } catch(_) {
@@ -409,32 +409,30 @@
             console.log('[Place] - Object depth:', size.z.toFixed(3), 'm');
             console.log('[Place] - Reticle position (where you tapped):', reticle.position);
             
-            // SIMPLE positioning: Move the object so its bottom touches the floor
-            // and its front edge is at the reticle position
-            const offsetY = size.y / 2;  // Move down by half height to get bottom at floor
-            const offsetZ = size.z / 2;  // Move backward by half depth to get front at reticle
+            // Position the model so its PIVOT POINT (front-bottom corner) is at the reticle center
+            // The model's pivot is already at the front-bottom corner, so we just need to position it correctly
             
-            // FIX: Move UP instead of down to get bottom at floor level
-            target.position.y += offsetY;  // Move UP so bottom touches floor at reticle level
-            target.position.z -= offsetZ;  // Move backward so front edge is at reticle
+            // NO OFFSET NEEDED - the pivot should be exactly at the reticle position
+            // The model's pivot point (front-bottom corner) will be placed exactly where the reticle is
+            console.log('[Place] PIVOT POSITIONING: Model pivot (front-bottom corner) placed at reticle center');
+            console.log('[Place] NO OFFSET APPLIED - using model as-is with pivot at front-bottom');
             
-            console.log('[Place] - Applied Y offset (UP):', offsetY.toFixed(3), 'm to get bottom at floor level');
-            console.log('[Place] - Applied Z offset (backward):', offsetZ.toFixed(3), 'm to get front at reticle');
-            console.log('[Place] - Final pivot position:', target.position);
+            console.log('[Place] - Final pivot position (front-bottom corner):', target.position);
             
-            // Verify final positioning
-            const finalBottomY = target.position.y - size.y/2;
-            const finalFrontZ = target.position.z + size.z/2;
-            console.log('[Place] - Object bottom now at Y:', finalBottomY.toFixed(3), 'm (should be at floor)');
-            console.log('[Place] - Object front edge now at Z:', finalFrontZ.toFixed(3), 'm (should be at reticle)');
-            console.log('[Place] - Object top now at Y:', (target.position.y + size.y/2).toFixed(3), 'm');
+            // Verify final positioning - the pivot is now exactly at the reticle
+            console.log('[Place] - Model pivot (front-bottom corner) at:', target.position);
+            console.log('[Place] - This should match reticle position:', reticle.position);
+            console.log('[Place] - Model extends from pivot point to:', 
+                        'X:', (target.position.x + size.x).toFixed(3), 'm,',
+                        'Y:', (target.position.y + size.y).toFixed(3), 'm,', 
+                        'Z:', (target.position.z + size.z).toFixed(3), 'm');
           
                        // Scale verification
             console.log('[Place] SCALE VERIFICATION:');
             console.log('[Place] - Your baby bed is ~0.85m tall');
             console.log('[Place] - This airplane model is', size.y.toFixed(2), 'm tall');
             console.log('[Place] - The airplane should be', (size.y/0.85).toFixed(1), 'times taller than your baby bed');
-            console.log('[Place] - This is 5X TESTING SCALE - airplane should be HUGE now');
+            console.log('[Place] - This is REAL 1:1 SCALE - airplane at real world size');
            
                        // Distance verification
             console.log('[Place] DISTANCE VERIFICATION:');
