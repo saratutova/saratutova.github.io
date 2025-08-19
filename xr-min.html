@@ -16,7 +16,7 @@
 <body>
   <div id="overlay" style="position:fixed; inset:0; z-index: 20; pointer-events:auto;">
     <div id="hint">Tap Start AR, then Place.</div>
-    <div id="build">xr-min build 27</div>
+    <div id="build">xr-min build 28</div>
     <div id="ui">
       <button id="start">Start AR</button>
       <button id="place" disabled>Place</button>
@@ -308,19 +308,22 @@
             console.log('[Place] ORIGINAL model dimensions: X=', sizeOriginal.x.toFixed(3), 'm, Y=', sizeOriginal.y.toFixed(3), 'm, Z=', sizeOriginal.z.toFixed(3), 'm');
           } catch(_) {}
           
-          // FORCE the model to be at real 1:1 scale using stored original dimensions
-          // This prevents the model from being modified between placements
+          // FORCE the model to be at real 1:1 scale
+          // The model should always be 13.53m tall regardless of what happened to it
           try {
-            if (originalModelDimensions) {
-              // Use stored original dimensions to calculate the correct scale
-              const expectedHeight = 13.53; // Real airplane height in meters
-              const scaleFactor = expectedHeight / originalModelDimensions.y;
-              
-              if (Number.isFinite(scaleFactor) && scaleFactor > 0) {
-                target.scale.setScalar(scaleFactor);
-                console.log('[Place] FORCED real scale using stored dimensions - original height:', originalModelDimensions.y.toFixed(3), 'm, expected:', expectedHeight, 'm');
-                console.log('[Place] Applied scale factor:', scaleFactor.toFixed(6), 'to achieve real 1:1 scale');
-              }
+            const expectedHeight = 13.53; // Real airplane height in meters
+            
+            // Calculate current height after resetting scale
+            const bboxCurrent = new THREE.Box3().setFromObject(target);
+            const sizeCurrent = new THREE.Vector3();
+            bboxCurrent.getSize(sizeCurrent);
+            
+            const scaleFactor = expectedHeight / sizeCurrent.y;
+            
+            if (Number.isFinite(scaleFactor) && scaleFactor > 0) {
+              target.scale.setScalar(scaleFactor);
+              console.log('[Place] FORCED real scale - current height:', sizeCurrent.y.toFixed(3), 'm, expected:', expectedHeight, 'm');
+              console.log('[Place] Applied scale factor:', scaleFactor.toFixed(6), 'to achieve real 1:1 scale');
             }
           } catch(_) {}
           
@@ -390,14 +393,18 @@
       }
       
              // Position the object so its FRONT-BOTTOM corner is at the reticle center
-       if (target === model && modelLoaded && originalModelDimensions) {
+       if (target === model && modelLoaded) {
          try {
-           // ALWAYS use stored original dimensions for positioning - never trust current model state
-           // This prevents positioning issues when the model gets modified between placements
+           // Use CURRENT model dimensions for positioning - the model may have been modified
+           // Calculate current dimensions after scaling to get accurate positioning
+           const bbox = new THREE.Box3().setFromObject(target);
+           const size = new THREE.Vector3();
+           bbox.getSize(size);
+           
            const finalDimensions = {
-             x: originalModelDimensions.x * target.scale.x,
-             y: originalModelDimensions.y * target.scale.y,
-             z: originalModelDimensions.z * target.scale.z
+             x: size.x,
+             y: size.y,
+             z: size.z
            };
            
            // The object is currently positioned with its pivot at the reticle center
