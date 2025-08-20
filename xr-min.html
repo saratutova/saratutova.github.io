@@ -16,7 +16,7 @@
 <body>
   <div id="overlay" style="position:fixed; inset:0; z-index: 20; pointer-events:auto;">
     <div id="hint">Tap Start AR, then Place.</div>
-    <div id="build">xr-min build 45</div>
+    <div id="build">xr-min build 46</div>
     <div id="ui">
       <button id="start">Start AR</button>
       <button id="place" disabled>Place</button>
@@ -345,21 +345,20 @@
               const expectedHeight = 13.53; // Real airplane height in meters
               const realScaleFactor = expectedHeight / originalModelDimensions.y;
               
-              // Apply extra scaling to make sure it's TRULY massive
-              const finalScaleFactor = realScaleFactor * defaultArScale * 3.0; // 3x bigger to ensure visibility
+              // Apply correct 1:1 real-world scaling - no extra multiplier needed
+              const finalScaleFactor = realScaleFactor * defaultArScale;
               
               if (Number.isFinite(finalScaleFactor) && finalScaleFactor > 0) {
                 target.scale.setScalar(finalScaleFactor);
                 console.log('[Place] SCALING - original height:', originalModelDimensions.y.toFixed(3), 'm');
                 console.log('[Place] Real scale factor:', realScaleFactor.toFixed(6), '(to 13.53m real size)');
                 console.log('[Place] AR scale factor:', defaultArScale, '(1.0 = real world size)');
-                console.log('[Place] Extra scale factor: 3.0 (to ensure massive size)');
                 console.log('[Place] Final scale factor:', finalScaleFactor.toFixed(6));
-                console.log('[Place] Final airplane height:', (13.53 * defaultArScale * 3.0).toFixed(3), 'm (MASSIVE!)');
+                console.log('[Place] Final airplane height:', (13.53 * defaultArScale).toFixed(3), 'm (REAL SIZE!)');
               }
             } else {
-              console.log('[Place] No original dimensions available, using 3x default scale');
-              target.scale.setScalar(defaultArScale * 3.0);
+              console.log('[Place] No original dimensions available, using default scale');
+              target.scale.setScalar(defaultArScale);
             }
           } catch(_) {
             console.log('[Place] Failed to apply scaling');
@@ -493,11 +492,11 @@
             // - min.y (bottom) ends up at targetPosition.y
             // - max.z (front) ends up at targetPosition.z
             
-            // Position so the BOTTOM of the airplane touches the target surface
-            // With consistent dimensions: min.y = 0 (bottom), max.z = halfDepth (front)
-            target.position.x = targetPosition.x; // X at target
-            target.position.y = targetPosition.y - min.y; // Bottom at target Y level (min.y should be 0)
-            target.position.z = targetPosition.z - max.z; // Front at target Z position
+            // Position so the FRONT-BOTTOM corner is exactly AT the target position
+            // The airplane's pivot is at its center, so we need to offset to place front at target
+            target.position.x = targetPosition.x; // X centered at target  
+            target.position.y = targetPosition.y - min.y; // Bottom touches target surface
+            target.position.z = targetPosition.z - max.z; // Move airplane back so FRONT is at target Z
             
             console.log('[Place] Y POSITIONING DEBUG (FIXED):');
             console.log('[Place] - Target Y (where bottom should be):', targetPosition.y.toFixed(6));
@@ -505,7 +504,21 @@
             console.log('[Place] - Object origin Y set to:', target.position.y.toFixed(6));
             console.log('[Place] - Expected bottom Y:', (target.position.y + min.y).toFixed(6), '(should equal target Y)');
             console.log('[Place] - Using ORIGINAL dimensions, not corrupted bounding box');
-            target.quaternion.copy(targetQuaternion);
+            
+            // ROTATION: Make airplane face toward the camera
+            const cameraDirection = new THREE.Vector3();
+            camera.getWorldDirection(cameraDirection);
+            // Airplane should face opposite to camera direction (so front faces camera)
+            const airplaneDirection = cameraDirection.clone().multiplyScalar(-1);
+            // Calculate rotation to face that direction
+            const targetRotation = new THREE.Quaternion();
+            targetRotation.setFromUnitVectors(new THREE.Vector3(0, 0, 1), airplaneDirection.normalize());
+            target.quaternion.copy(targetRotation);
+            
+            console.log('[Place] ROTATION:');
+            console.log('[Place] - Camera direction:', cameraDirection);
+            console.log('[Place] - Airplane should face:', airplaneDirection);
+            console.log('[Place] - Applied rotation:', targetRotation);
             
             console.log('[Place] CALCULATED POSITIONING:');
             console.log('[Place] - Target position:', targetPosition);
