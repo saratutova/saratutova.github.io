@@ -16,7 +16,7 @@
 <body>
   <div id="overlay" style="position:fixed; inset:0; z-index: 20; pointer-events:auto;">
     <div id="hint">Tap Start AR, then Place.</div>
-    <div id="build">xr-min build 47</div>
+    <div id="build">xr-min build 48</div>
     <div id="ui">
       <button id="start">Start AR</button>
       <button id="place" disabled>Place</button>
@@ -492,11 +492,27 @@
             // - min.y (bottom) ends up at targetPosition.y
             // - max.z (front) ends up at targetPosition.z
             
-            // SIMPLIFIED: Place airplane CENTER at the target position for now
-            // We'll figure out which end is the front later
+            // PRECISE Y-POSITIONING: Ensure bottom touches the surface exactly
             target.position.x = targetPosition.x; // X at target
-            target.position.y = targetPosition.y - min.y; // Bottom touches surface (this part is correct)
             target.position.z = targetPosition.z; // CENTER at target Z (not offset)
+            
+            // Y-positioning: Make sure the absolute bottom of the airplane touches the surface
+            // If min.y = 0, then bottom is at object origin level
+            // If min.y < 0, then bottom is BELOW object origin
+            // We want: target.position.y + min.y = targetPosition.y (surface level)
+            // Therefore: target.position.y = targetPosition.y - min.y
+            // Add tiny offset to ensure it's actually ON the surface, not below
+            const surfaceOffset = 0.001; // 1mm above surface to ensure visibility
+            target.position.y = targetPosition.y - min.y + surfaceOffset;
+            
+            console.log('[Place] Y-POSITIONING DETAILED DEBUG:');
+            console.log('[Place] - Surface level (target Y):', targetPosition.y.toFixed(6));
+            console.log('[Place] - Object min.y (bottom offset from origin):', min.y.toFixed(6));
+            console.log('[Place] - Object origin placed at Y:', target.position.y.toFixed(6));
+            console.log('[Place] - Calculated bottom Y (origin + min.y):', (target.position.y + min.y).toFixed(6));
+            console.log('[Place] - Bottom vs surface difference:', Math.abs((target.position.y + min.y) - targetPosition.y).toFixed(6), 'm');
+            console.log('[Place] - Applied surface offset:', surfaceOffset, 'm');
+            console.log('[Place] - Bottom should equal surface:', Math.abs((target.position.y + min.y) - targetPosition.y - surfaceOffset) < 0.001 ? 'CORRECT' : 'WRONG');
             
             console.log('[Place] Y POSITIONING DEBUG (FIXED):');
             console.log('[Place] - Target Y (where bottom should be):', targetPosition.y.toFixed(6));
@@ -557,6 +573,14 @@
             console.log('[Place] - Airplane BACK (-Z):', airplaneBack);
             console.log('[Place] - Distance from reticle to airplane center:', camera.position.distanceTo(target.position).toFixed(3), 'm');
             console.log('[Place] - Distance from reticle to airplane front:', camera.position.distanceTo(new THREE.Vector3(airplaneFront.x, airplaneFront.y, airplaneFront.z)).toFixed(3), 'm');
+            
+            // Add visual reference - how high above "floor level" are we?
+            console.log('[Place] FLOOR REFERENCE CHECK:');
+            console.log('[Place] - Camera Y position:', camera.position.y.toFixed(3), 'm (camera height above world origin)');
+            console.log('[Place] - Surface Y position:', targetPosition.y.toFixed(3), 'm (detected surface height)');
+            console.log('[Place] - Airplane bottom Y:', (target.position.y + min.y).toFixed(3), 'm (where airplane bottom actually is)');
+            console.log('[Place] - Height difference: camera vs surface:', (camera.position.y - targetPosition.y).toFixed(3), 'm');
+            console.log('[Place] - Height difference: camera vs airplane bottom:', (camera.position.y - (target.position.y + min.y)).toFixed(3), 'm');
           
                        // Scale verification
             console.log('[Place] SCALE VERIFICATION:');
