@@ -16,7 +16,7 @@
 <body>
   <div id="overlay" style="position:fixed; inset:0; z-index: 20; pointer-events:auto;">
     <div id="hint">Tap Start AR, then Place.</div>
-    <div id="build">xr-min build 37</div>
+    <div id="build">xr-min build 39</div>
     <div id="ui">
       <button id="start">Start AR</button>
       <button id="place" disabled>Place</button>
@@ -84,9 +84,14 @@
       renderer.setClearColor(0x000000, 0);
     }
 
-    // Simple reticle
-    const reticleGeo = new THREE.RingGeometry(0.08, 0.1, 32).rotateX(-Math.PI/2);
-    const reticleMat = new THREE.MeshBasicMaterial({ color: 0x00ffcc });
+    // Improved reticle - larger and more visible
+    const reticleGeo = new THREE.RingGeometry(0.12, 0.16, 32).rotateX(-Math.PI/2);
+    const reticleMat = new THREE.MeshBasicMaterial({ 
+      color: 0x00ffcc, 
+      transparent: true, 
+      opacity: 0.8,
+      side: THREE.DoubleSide 
+    });
     const reticle = new THREE.Mesh(reticleGeo, reticleMat);
     reticle.visible = false;
     reticle.renderOrder = 9999; reticleMat.depthTest = false; reticleMat.depthWrite = false;
@@ -282,11 +287,26 @@
       xrSession = session; renderer.xr.setSession(session);
       exitBtn.disabled = false; startBtn.textContent = 'AR Running';
       hint.textContent = 'Move to find surface';
-      session.addEventListener('end', ()=>{ startBtn.textContent='Start AR'; placeBtn.disabled=true; exitBtn.disabled=true; reticle.visible=false; cube.visible=false; });
+      session.addEventListener('end', ()=>{ 
+        startBtn.textContent='Start AR'; 
+        placeBtn.disabled=true; 
+        exitBtn.disabled=true; 
+        reticle.visible=false; 
+        cube.visible=false; 
+        // Hide model when session ends
+        if (model) model.visible = false;
+        console.log('[XR] Session ended - all objects hidden'); 
+      });
 
       refSpace = await session.requestReferenceSpace('local-floor');
       viewerSpace = await session.requestReferenceSpace('viewer');
-      hitSource = await session.requestHitTestSource({ space: viewerSpace });
+      try {
+        hitSource = await session.requestHitTestSource({ space: viewerSpace });
+        console.log('[XR] Hit test source created successfully');
+      } catch (err) {
+        console.log('[XR] Hit test source failed:', err);
+        hint.textContent = 'Hit test failed - will use camera placement';
+      }
       placeBtn.disabled = false;
       autoPlaced = false;
       if (autoPlace) {
@@ -298,7 +318,7 @@
     function place(){
       const target = (!forceCube && modelLoaded && model) ? model : cube;
       
-                          // Apply scaling every time to ensure proper sizing
+        // Apply scaling every time to ensure proper sizing
         if (target === model) {
           // Reset scale and apply proper scaling
           target.scale.setScalar(1);
@@ -387,13 +407,20 @@
           } catch(_) {}
         }
       
-      if (reticle.visible) {
+      // Check if we have a valid reticle position (not at origin)
+      const hasValidReticle = reticle.visible && (reticle.position.x !== 0 || reticle.position.y !== 0 || reticle.position.z !== 0);
+      
+      if (hasValidReticle) {
+        console.log('[Place] Using valid reticle position:', reticle.position);
         target.position.copy(reticle.position);
         target.quaternion.copy(reticle.quaternion);
       } else {
+        console.log('[Place] No valid surface found - using camera fallback');
         const dir = new THREE.Vector3(0,0,-1).applyQuaternion(camera.quaternion);
-        target.position.copy(camera.position).add(dir.multiplyScalar(1));
+        target.position.copy(camera.position).add(dir.multiplyScalar(2)); // Place 2m in front
         target.quaternion.copy(camera.quaternion);
+        target.position.y = Math.max(0, camera.position.y - 1.5); // Assume floor 1.5m below camera
+        console.log('[Place] Camera fallback position:', target.position);
       }
       
                           // Position the object so its FRONT-BOTTOM corner is at the reticle center
@@ -501,11 +528,14 @@
         const results = frame.getHitTestResults(hitSource);
         if (results && results.length) {
           const hitPose = results[0].getPose(refSpace);
-          reticle.visible = true; reticle.position.set(hitPose.transform.position.x, hitPose.transform.position.y, hitPose.transform.position.z);
+          reticle.visible = true; 
+          reticle.position.set(hitPose.transform.position.x, hitPose.transform.position.y, hitPose.transform.position.z);
           reticle.quaternion.set(hitPose.transform.orientation.x, hitPose.transform.orientation.y, hitPose.transform.orientation.z, hitPose.transform.orientation.w);
+          hint.textContent = 'Surface found - tap Place';
           if (autoPlace && !autoPlaced) { try { place(); autoPlaced = true; console.log('[AutoPlace] via reticle'); } catch(_){} }
         } else {
           reticle.visible = false;
+          hint.textContent = 'Move to find surface';
         }
       }
       renderer.render(scene, camera);
