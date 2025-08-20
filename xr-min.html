@@ -16,7 +16,7 @@
 <body>
   <div id="overlay" style="position:fixed; inset:0; z-index: 20; pointer-events:auto;">
     <div id="hint">Tap Start AR, then Place.</div>
-    <div id="build">xr-min build 43</div>
+    <div id="build">xr-min build 44</div>
     <div id="ui">
       <button id="start">Start AR</button>
       <button id="place" disabled>Place</button>
@@ -54,10 +54,10 @@
     const unitScaleParam = parseFloat(url.searchParams.get('unitScale') || url.searchParams.get('us') || 'NaN');
     const unitScale = Number.isFinite(unitScaleParam) ? unitScaleParam :
       (unitsParam === 'cm' ? 0.01 : unitsParam === 'mm' ? 0.001 : unitsParam === 'in' ? 0.0254 : unitsParam === 'ft' ? 0.3048 : 1);
-         const targetMaxDimMeters = parseFloat(url.searchParams.get('target') || url.searchParams.get('length') || url.searchParams.get('max') || 'NaN');
+    const targetMaxDimMeters = parseFloat(url.searchParams.get('target') || url.searchParams.get('length') || url.searchParams.get('max') || 'NaN');
      const modelUrl = url.searchParams.get('model') || './models/7579_3K_V4.glb';
-     const useV1 = url.searchParams.get('v1') === '1';
-     const resolvedModel = useV1 ? './models/7579_3K_V1.glb' : modelUrl;
+    const useV1 = url.searchParams.get('v1') === '1';
+    const resolvedModel = useV1 ? './models/7579_3K_V1.glb' : modelUrl;
      
      // Removed test scale - model will be displayed at real 1:1 scale
 
@@ -301,7 +301,7 @@
       refSpace = await session.requestReferenceSpace('local-floor');
       viewerSpace = await session.requestReferenceSpace('viewer');
       try {
-        hitSource = await session.requestHitTestSource({ space: viewerSpace });
+      hitSource = await session.requestHitTestSource({ space: viewerSpace });
         console.log('[XR] Hit test source created successfully');
       } catch (err) {
         console.log('[XR] Hit test source failed:', err);
@@ -320,6 +320,19 @@
       
         // Apply scaling every time to ensure proper sizing
         if (target === model) {
+          // CRITICAL: Reset to clean state before any calculations
+          if (originalModelClone) {
+            // Replace current model with clean copy to prevent corruption
+            scene.remove(target);
+            model = originalModelClone.clone(true);
+            model.visible = false;
+            model.renderOrder = 9999;
+            model.traverse((child)=>{ if (child.material){ child.material.depthTest=true; child.material.depthWrite=true; child.material.needsUpdate=true; } });
+            scene.add(model);
+            target = model;
+            console.log('[Place] restored clean model from original clone');
+          }
+          
           // Reset scale and apply proper scaling
           target.scale.setScalar(1);
           console.log('[Place] reset scale to 1');
@@ -507,21 +520,19 @@
             console.log('[Place] - Final object position:', target.position);
             console.log('[Place] - Reticle position (target):', reticle.position);
             
-            // Calculate where the front-bottom corner actually is now
-            const verifyBbox = new THREE.Box3().setFromObject(target);
+            // Calculate where the front-bottom corner actually is using CONSISTENT dimensions
             const frontBottomCorner = {
                 x: target.position.x, // X stays centered
-                y: verifyBbox.min.y,     // Bottom of the airplane
-                z: verifyBbox.max.z      // Front of the airplane
+                y: target.position.y + min.y,     // Bottom of the airplane using original min
+                z: target.position.z + max.z      // Front of the airplane using original max
             };
             
-            console.log('[Place] - VERIFICATION: Front-bottom corner now at:', frontBottomCorner);
-            console.log('[Place] - Should match reticle position:', reticle.position);
-            console.log('[Place] - Airplane extends from front-bottom to back-top');
-            console.log('[Place] - Bottom at Y:', verifyBbox.min.y.toFixed(3), 'm (should be at reticle Y)');
-            console.log('[Place] - Top at Y:', verifyBbox.max.y.toFixed(3), 'm');
-            console.log('[Place] - Front at Z:', verifyBbox.max.z.toFixed(3), 'm (should be at reticle Z)');
-            console.log('[Place] - Back at Z:', verifyBbox.min.z.toFixed(3), 'm');
+            console.log('[Place] - VERIFICATION (using original dimensions): Front-bottom corner now at:', frontBottomCorner);
+            console.log('[Place] - Should match reticle position:', targetPosition);
+            console.log('[Place] - CALCULATED bottom at Y:', frontBottomCorner.y.toFixed(3), 'm (should match target:', targetPosition.y.toFixed(3), 'm)');
+            console.log('[Place] - CALCULATED front at Z:', frontBottomCorner.z.toFixed(3), 'm (should match target:', targetPosition.z.toFixed(3), 'm)');
+            console.log('[Place] - Position difference Y:', Math.abs(frontBottomCorner.y - targetPosition.y).toFixed(6), 'm (should be ~0)');
+            console.log('[Place] - Position difference Z:', Math.abs(frontBottomCorner.z - targetPosition.z).toFixed(6), 'm (should be ~0)');
           
                        // Scale verification
             console.log('[Place] SCALE VERIFICATION:');
@@ -537,7 +548,7 @@
             const distanceToReticle = camera.position.distanceTo(reticle.position);
             console.log('[Place] - Distance from camera to reticle:', distanceToReticle.toFixed(3), 'm');
             console.log('[Place] - This is a REAL distance in meters from the AR system');
-         } catch(_) {}
+        } catch(_) {}
        } else {
          // For cube or other objects, just place at target position
          target.position.copy(targetPosition);
