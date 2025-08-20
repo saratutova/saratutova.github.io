@@ -16,7 +16,7 @@
 <body>
   <div id="overlay" style="position:fixed; inset:0; z-index: 20; pointer-events:auto;">
     <div id="hint">Tap Start AR, then Place.</div>
-    <div id="build">xr-min build 35</div>
+    <div id="build">xr-min build 36</div>
     <div id="ui">
       <button id="start">Start AR</button>
       <button id="place" disabled>Place</button>
@@ -417,15 +417,20 @@
             const min = positionBbox.min; // Minimum extents (back, bottom, left)
             const max = positionBbox.max; // Maximum extents (front, top, right)
             
-            // Calculate offsets to position front-bottom corner at reticle
-            // Front = maximum Z, Bottom = minimum Y
-            const offsetX = 0; // Keep X centered (no offset needed)
-            const offsetY = -min.y; // Move up so bottom (min.y) is at reticle level
-            const offsetZ = -max.z; // Move backward so front (max.z) is at reticle position
+            // Calculate where to position the object so its front-bottom corner is at reticle
+            // We need to move the object so that:
+            // - The front edge (max.z in object space) aligns with reticle.position.z
+            // - The bottom edge (min.y in object space) aligns with reticle.position.y
             
-            target.position.x += offsetX;
-            target.position.y += offsetY; 
-            target.position.z += offsetZ;
+            // The object's front-bottom corner in world space should be at reticle position
+            // So we need to offset the object position by the difference
+            const offsetX = 0; // Keep X centered
+            const offsetY = -min.y; // How much to lift object so bottom is at Y=0, then add reticle Y
+            const offsetZ = -max.z; // How much to pull back object so front is at Z=0, then add reticle Z
+            
+            target.position.x = reticle.position.x + offsetX;
+            target.position.y = reticle.position.y + offsetY; 
+            target.position.z = reticle.position.z + offsetZ;
             
             console.log('[Place] CALCULATED FRONT-BOTTOM POSITIONING:');
             console.log('[Place] - Bounding box min (back/bottom/left):', min);
@@ -433,6 +438,9 @@
             console.log('[Place] - Applied X offset:', offsetX.toFixed(3), 'm (keep centered)');
             console.log('[Place] - Applied Y offset:', offsetY.toFixed(3), 'm (move up to get bottom at reticle)');
             console.log('[Place] - Applied Z offset:', offsetZ.toFixed(3), 'm (move back to get front at reticle)');
+            console.log('[Place] - Reticle Y position:', reticle.position.y.toFixed(3), 'm');
+            console.log('[Place] - Object bottom before positioning:', min.y.toFixed(3), 'm');
+            console.log('[Place] - Final calculated Y position:', (reticle.position.y + offsetY).toFixed(3), 'm');
             
             console.log('[Place] - Final pivot position (front-bottom corner):', target.position);
             
