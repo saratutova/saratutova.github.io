@@ -15,8 +15,8 @@
 </head>
 <body>
   <div id="overlay" style="position:fixed; inset:0; z-index: 20; pointer-events:auto;">
-    <div id="hint">Tap Start AR, then Place.</div>
-    <div id="build">xr-min build 50 (reverted)</div>
+    <div id="hint">Tap Start AR, then Place. Add ?testCube=1 for 1x1x1m test cube.</div>
+    <div id="build">xr-min build 50 + test cube</div>
     <div id="ui">
       <button id="start">Start AR</button>
       <button id="place" disabled>Place</button>
@@ -46,6 +46,7 @@
     const opaque = url.searchParams.get('opaque') === '1';
     const big = url.searchParams.get('big') === '1';
     const forceCube = url.searchParams.get('cube') === '1';
+    const testCube = url.searchParams.get('testCube') === '1'; // 1x1x1 meter test cube
     const basicMat = url.searchParams.get('basic') === '1';
     // Real 1:1 scale by default - experience the airplane at true real-world size
     const defaultArScale = url.searchParams.get('smallScale') === '1' ? 0.1 : 1.0;
@@ -101,7 +102,7 @@
     const amb = new THREE.AmbientLight(0xffffff, 1.0); scene.add(amb);
     const dirLight = new THREE.DirectionalLight(0xffffff, 0.8); dirLight.position.set(0, 1, 0); scene.add(dirLight);
 
-    // Cube fallback
+    // Cube fallback and test cube
     const s = big ? 0.8 : 0.4;
     const cube = new THREE.Mesh(
       new THREE.BoxGeometry(s, s, s),
@@ -109,6 +110,21 @@
     );
     cube.visible = false; cube.renderOrder = 9999; cube.material.depthTest = true; cube.material.depthWrite = true;
     scene.add(cube);
+
+    // Test cube - exactly 1x1x1 meters for debugging positioning
+    const testCubeObj = new THREE.Mesh(
+      new THREE.BoxGeometry(1.0, 1.0, 1.0), // Exactly 1x1x1 meters
+      new THREE.MeshBasicMaterial({ 
+        color: 0x00ff00, // Green color to distinguish from purple cube
+        transparent: true,
+        opacity: 0.8
+      })
+    );
+    testCubeObj.visible = false; 
+    testCubeObj.renderOrder = 9999; 
+    testCubeObj.material.depthTest = true; 
+    testCubeObj.material.depthWrite = true;
+    scene.add(testCubeObj);
 
     // Load GLB model by default
     let model = null; let modelLoaded = false; let modelOriginalMaxDim = null; let modelScaleApplied = false;
@@ -317,7 +333,15 @@
 
     function place(){
       try {
-        let target = (!forceCube && modelLoaded && model) ? model : cube;
+        // Choose target object: test cube > airplane model > fallback cube
+        let target;
+        if (testCube) {
+          target = testCubeObj;
+        } else if (!forceCube && modelLoaded && model) {
+          target = model;
+        } else {
+          target = cube;
+        }
         
         // Apply scaling every time to ensure proper sizing
         if (target === model) {
@@ -607,12 +631,48 @@
             console.log('[Place] - Distance from camera to reticle:', distanceToReticle.toFixed(3), 'm');
             console.log('[Place] - This is a REAL distance in meters from the AR system');
         } catch(_) {}
+       } else if (target === testCubeObj) {
+         // TEST CUBE: 1x1x1 meter cube positioned exactly as requested
+         // Front-bottom corner at reticle, facing camera, on ground
+         
+         // Calculate cube dimensions (we know it's 1x1x1, but let's be explicit)
+         const cubeSize = 1.0; // 1 meter
+         const halfSize = cubeSize / 2; // 0.5 meters
+         
+         // Position so the FRONT-BOTTOM corner is at the reticle
+         // Cube origin is at center, so we need to offset by half-size
+         target.position.x = targetPosition.x;
+         target.position.y = targetPosition.y + halfSize; // Move up by 0.5m so bottom touches surface
+         target.position.z = targetPosition.z + halfSize; // Move back by 0.5m so front edge is at reticle
+         
+         // Make cube face the camera
+         const cameraDirection = new THREE.Vector3();
+         camera.getWorldDirection(cameraDirection);
+         // Cube should face opposite to camera direction (so front faces camera)
+         const cubeDirection = cameraDirection.clone().multiplyScalar(-1);
+         // Calculate rotation to face that direction  
+         const cubeRotation = new THREE.Quaternion();
+         cubeRotation.setFromUnitVectors(new THREE.Vector3(0, 0, 1), cubeDirection.normalize());
+         target.quaternion.copy(cubeRotation);
+         
+         console.log('[Place] TEST CUBE positioned:');
+         console.log('[Place] - Cube size: 1x1x1 meters');
+         console.log('[Place] - Target position (reticle):', targetPosition);
+         console.log('[Place] - Cube center position:', target.position);
+         console.log('[Place] - Front-bottom corner at:', {
+           x: target.position.x,
+           y: target.position.y - halfSize,
+           z: target.position.z - halfSize
+         });
+         console.log('[Place] - Camera direction:', cameraDirection);
+         console.log('[Place] - Cube facing direction:', cubeDirection);
+         
        } else {
-         // For cube or other objects, just place at target position
+         // For regular cube or other objects, just place at target position
          target.position.copy(targetPosition);
          target.quaternion.copy(targetQuaternion);
          target.position.y += 0.05; // Slightly above surface
-         console.log('[Place] Cube positioned at:', target.position);
+         console.log('[Place] Regular cube positioned at:', target.position);
        }
       
       target.visible = true;
