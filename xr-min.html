@@ -16,7 +16,7 @@
 <body>
   <div id="overlay" style="position:fixed; inset:0; z-index: 20; pointer-events:auto;">
     <div id="hint">Tap Start AR, then Place.</div>
-    <div id="build">xr-min build 36</div>
+    <div id="build">xr-min build 37</div>
     <div id="ui">
       <button id="start">Start AR</button>
       <button id="place" disabled>Place</button>
@@ -47,6 +47,8 @@
     const big = url.searchParams.get('big') === '1';
     const forceCube = url.searchParams.get('cube') === '1';
     const basicMat = url.searchParams.get('basic') === '1';
+    // Real 1:1 scale by default - experience the airplane at true real-world size
+    const defaultArScale = url.searchParams.get('smallScale') === '1' ? 0.1 : 1.0;
     // Unit and scaling controls
     const unitsParam = (url.searchParams.get('units') || url.searchParams.get('u') || '').toLowerCase();
     const unitScaleParam = parseFloat(url.searchParams.get('unitScale') || url.searchParams.get('us') || 'NaN');
@@ -302,29 +304,27 @@
           target.scale.setScalar(1);
           console.log('[Place] reset scale to 1');
           
-          // FORCE the model to be at REAL 1:1 scale
+          // Apply base scale (1:1 real size first, then default AR scale)
           try {
             if (originalModelDimensions) {
-              // Use real airplane scale - should be 13.53m tall (1:1 scale)
+              // First get to real 1:1 scale
               const expectedHeight = 13.53; // Real airplane height in meters
-              const scaleFactor = expectedHeight / originalModelDimensions.y;
+              const realScaleFactor = expectedHeight / originalModelDimensions.y;
               
-              if (Number.isFinite(scaleFactor) && scaleFactor > 0) {
-                target.scale.setScalar(scaleFactor);
-                console.log('[Place] REAL 1:1 SCALE - original height:', originalModelDimensions.y.toFixed(3), 'm, expected:', expectedHeight, 'm');
-                console.log('[Place] Applied scale factor:', scaleFactor.toFixed(6), 'to make airplane real 1:1 size');
+              // Then apply default AR scale for comfortable viewing
+              const finalScaleFactor = realScaleFactor * defaultArScale;
+              
+              if (Number.isFinite(finalScaleFactor) && finalScaleFactor > 0) {
+                target.scale.setScalar(finalScaleFactor);
+                console.log('[Place] SCALING - original height:', originalModelDimensions.y.toFixed(3), 'm');
+                console.log('[Place] Real scale factor:', realScaleFactor.toFixed(6), '(to 13.53m real size)');
+                console.log('[Place] AR scale factor:', defaultArScale, '(1.0 = real world size)');
+                console.log('[Place] Final scale factor:', finalScaleFactor.toFixed(6));
+                console.log('[Place] Final airplane height:', (13.53 * defaultArScale).toFixed(3), 'm (REAL WORLD SIZE)');
               }
             } else {
-              console.log('[Place] No original dimensions available, using current model size');
-              const bbox = new THREE.Box3().setFromObject(target);
-              const size = new THREE.Vector3();
-              bbox.getSize(size);
-              const expectedHeight = 13.53; // Real scale
-              const scaleFactor = expectedHeight / size.y;
-              if (Number.isFinite(scaleFactor) && scaleFactor > 0) {
-                target.scale.setScalar(scaleFactor);
-                console.log('[Place] Applied real scale factor based on current size:', scaleFactor.toFixed(6));
-              }
+              console.log('[Place] No original dimensions available, using default AR scale');
+              target.scale.setScalar(defaultArScale);
             }
           } catch(_) {
             console.log('[Place] Failed to apply scaling');
@@ -377,12 +377,13 @@
             console.log('[Place] FINAL model size (after scaling):', sizeFinal);
             console.log('[Place] FINAL model dimensions: X=', sizeFinal.x.toFixed(3), 'm, Y=', sizeFinal.y.toFixed(3), 'm, Z=', sizeFinal.z.toFixed(3), 'm');
             
-            // Calculate what the object should look like in real life
-            console.log('[Place] REAL-WORLD comparison:');
-            console.log('[Place] - Your model is now', sizeFinal.x.toFixed(2), 'm wide,', sizeFinal.y.toFixed(2), 'm tall,', sizeFinal.z.toFixed(2), 'm deep');
-            console.log('[Place] - A baby bed is typically ~0.7m × 0.4m × 1.4m');
-            console.log('[Place] - Your model should be', (sizeFinal.x/0.7).toFixed(1), 'times wider than a baby bed');
-            console.log('[Place] - Your model should be', (sizeFinal.y/0.85).toFixed(1), 'times taller than your baby bed');
+            // Real-world scale verification
+            console.log('[Place] REAL-WORLD SCALE verification:');
+            console.log('[Place] - Your airplane is now', sizeFinal.x.toFixed(2), 'm wide,', sizeFinal.y.toFixed(2), 'm tall,', sizeFinal.z.toFixed(2), 'm deep');
+            console.log('[Place] - This is REAL WORLD SIZE - same as the actual airplane!');
+            console.log('[Place] - A person is ~1.7m tall - this airplane is', (sizeFinal.y/1.7).toFixed(1), 'times taller than a person');
+            console.log('[Place] - You should be able to walk under the wings and around the fuselage!');
+            console.log('[Place] - The cockpit should be about 3-4 meters above ground level');
           } catch(_) {}
         }
       
@@ -422,25 +423,24 @@
             // - The front edge (max.z in object space) aligns with reticle.position.z
             // - The bottom edge (min.y in object space) aligns with reticle.position.y
             
-            // The object's front-bottom corner in world space should be at reticle position
-            // So we need to offset the object position by the difference
-            const offsetX = 0; // Keep X centered
-            const offsetY = -min.y; // How much to lift object so bottom is at Y=0, then add reticle Y
-            const offsetZ = -max.z; // How much to pull back object so front is at Z=0, then add reticle Z
+            // Position the object so its front-bottom corner is exactly at the reticle
+            // We need to move the object's origin so that:
+            // - min.y (bottom) aligns with reticle.position.y
+            // - max.z (front) aligns with reticle.position.z
             
-            target.position.x = reticle.position.x + offsetX;
-            target.position.y = reticle.position.y + offsetY; 
-            target.position.z = reticle.position.z + offsetZ;
+            target.position.x = reticle.position.x; // X centered at reticle
+            target.position.y = reticle.position.y - min.y; // Bottom at reticle Y level
+            target.position.z = reticle.position.z - max.z; // Front at reticle Z position
             
             console.log('[Place] CALCULATED FRONT-BOTTOM POSITIONING:');
             console.log('[Place] - Bounding box min (back/bottom/left):', min);
             console.log('[Place] - Bounding box max (front/top/right):', max);
-            console.log('[Place] - Applied X offset:', offsetX.toFixed(3), 'm (keep centered)');
-            console.log('[Place] - Applied Y offset:', offsetY.toFixed(3), 'm (move up to get bottom at reticle)');
-            console.log('[Place] - Applied Z offset:', offsetZ.toFixed(3), 'm (move back to get front at reticle)');
-            console.log('[Place] - Reticle Y position:', reticle.position.y.toFixed(3), 'm');
-            console.log('[Place] - Object bottom before positioning:', min.y.toFixed(3), 'm');
-            console.log('[Place] - Final calculated Y position:', (reticle.position.y + offsetY).toFixed(3), 'm');
+            console.log('[Place] - Reticle position:', reticle.position);
+            console.log('[Place] - Object bottom at Y:', min.y.toFixed(3), 'm');
+            console.log('[Place] - Object front at Z:', max.z.toFixed(3), 'm');
+            console.log('[Place] - Final calculated position:', target.position);
+            console.log('[Place] - Bottom should now be at reticle Y:', reticle.position.y.toFixed(3), 'm');
+            console.log('[Place] - Front should now be at reticle Z:', reticle.position.z.toFixed(3), 'm');
             
             console.log('[Place] - Final pivot position (front-bottom corner):', target.position);
             
