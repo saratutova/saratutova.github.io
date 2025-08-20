@@ -16,7 +16,7 @@
 <body>
   <div id="overlay" style="position:fixed; inset:0; z-index: 20; pointer-events:auto;">
     <div id="hint">Tap Start AR, then Place.</div>
-    <div id="build">xr-min build 39</div>
+    <div id="build">xr-min build 40</div>
     <div id="ui">
       <button id="start">Start AR</button>
       <button id="place" disabled>Place</button>
@@ -410,64 +410,61 @@
       // Check if we have a valid reticle position (not at origin)
       const hasValidReticle = reticle.visible && (reticle.position.x !== 0 || reticle.position.y !== 0 || reticle.position.z !== 0);
       
+      let targetPosition = new THREE.Vector3();
+      let targetQuaternion = new THREE.Quaternion();
+      
       if (hasValidReticle) {
         console.log('[Place] Using valid reticle position:', reticle.position);
-        target.position.copy(reticle.position);
-        target.quaternion.copy(reticle.quaternion);
+        targetPosition.copy(reticle.position);
+        targetQuaternion.copy(reticle.quaternion);
       } else {
         console.log('[Place] No valid surface found - using camera fallback');
         const dir = new THREE.Vector3(0,0,-1).applyQuaternion(camera.quaternion);
-        target.position.copy(camera.position).add(dir.multiplyScalar(2)); // Place 2m in front
-        target.quaternion.copy(camera.quaternion);
-        target.position.y = Math.max(0, camera.position.y - 1.5); // Assume floor 1.5m below camera
-        console.log('[Place] Camera fallback position:', target.position);
+        targetPosition.copy(camera.position).add(dir.multiplyScalar(2)); // Place 2m in front
+        targetQuaternion.copy(camera.quaternion);
+        targetPosition.y = Math.max(0, camera.position.y - 1.5); // Assume floor 1.5m below camera
+        console.log('[Place] Camera fallback position:', targetPosition);
       }
       
-                          // Position the object so its FRONT-BOTTOM corner is at the reticle center
-        if (target === model && modelLoaded) {
+      // Position the object so its FRONT-BOTTOM corner is at the target position
+      if (target === model && modelLoaded) {
           try {
-            // Get current model dimensions after scaling
+            // CRITICAL: Get bounding box with object at origin to get clean dimensions
+            const origPos = target.position.clone();
+            target.position.set(0, 0, 0);
+            
             const bbox = new THREE.Box3().setFromObject(target);
             const size = new THREE.Vector3();
             bbox.getSize(size);
+            const min = bbox.min; // Minimum extents (back, bottom, left)
+            const max = bbox.max; // Maximum extents (front, top, right)
             
             console.log('[Place] POSITIONING details:');
             console.log('[Place] - Object height:', size.y.toFixed(3), 'm');
             console.log('[Place] - Object width:', size.x.toFixed(3), 'm');
             console.log('[Place] - Object depth:', size.z.toFixed(3), 'm');
-            console.log('[Place] - Reticle position (where you tapped):', reticle.position);
+            console.log('[Place] - Target position (where to place):', targetPosition);
+            console.log('[Place] - Object bounding box at origin - min:', min, 'max:', max);
             
-            // Position the model so its FRONT-BOTTOM corner is at the reticle center
-            // We need to calculate where the front-bottom corner actually is and move the model accordingly
+            // Now we have the clean bounding box from object at origin
             
-            // Get the bounding box to find the actual front, bottom, and extents
-            const positionBbox = new THREE.Box3().setFromObject(target);
-            const min = positionBbox.min; // Minimum extents (back, bottom, left)
-            const max = positionBbox.max; // Maximum extents (front, top, right)
+            // Position the object so its front-bottom corner is exactly at the target position
+            // We need to offset the object position so that:
+            // - min.y (bottom) ends up at targetPosition.y
+            // - max.z (front) ends up at targetPosition.z
             
-            // Calculate where to position the object so its front-bottom corner is at reticle
-            // We need to move the object so that:
-            // - The front edge (max.z in object space) aligns with reticle.position.z
-            // - The bottom edge (min.y in object space) aligns with reticle.position.y
+            target.position.x = targetPosition.x - (min.x + max.x) / 2; // Center X on target
+            target.position.y = targetPosition.y - min.y; // Bottom at target Y level  
+            target.position.z = targetPosition.z - max.z; // Front at target Z position
+            target.quaternion.copy(targetQuaternion);
             
-            // Position the object so its front-bottom corner is exactly at the reticle
-            // We need to move the object's origin so that:
-            // - min.y (bottom) aligns with reticle.position.y
-            // - max.z (front) aligns with reticle.position.z
-            
-            target.position.x = reticle.position.x; // X centered at reticle
-            target.position.y = reticle.position.y - min.y; // Bottom at reticle Y level
-            target.position.z = reticle.position.z - max.z; // Front at reticle Z position
-            
-            console.log('[Place] CALCULATED FRONT-BOTTOM POSITIONING:');
-            console.log('[Place] - Bounding box min (back/bottom/left):', min);
-            console.log('[Place] - Bounding box max (front/top/right):', max);
-            console.log('[Place] - Reticle position:', reticle.position);
-            console.log('[Place] - Object bottom at Y:', min.y.toFixed(3), 'm');
-            console.log('[Place] - Object front at Z:', max.z.toFixed(3), 'm');
-            console.log('[Place] - Final calculated position:', target.position);
-            console.log('[Place] - Bottom should now be at reticle Y:', reticle.position.y.toFixed(3), 'm');
-            console.log('[Place] - Front should now be at reticle Z:', reticle.position.z.toFixed(3), 'm');
+            console.log('[Place] CALCULATED POSITIONING:');
+            console.log('[Place] - Target position:', targetPosition);
+            console.log('[Place] - Object bottom offset:', min.y.toFixed(3), 'm');
+            console.log('[Place] - Object front offset:', max.z.toFixed(3), 'm');
+            console.log('[Place] - Final object position:', target.position);
+            console.log('[Place] - Bottom should now be at target Y:', targetPosition.y.toFixed(3), 'm');
+            console.log('[Place] - Front should now be at target Z:', targetPosition.z.toFixed(3), 'm');
             
             console.log('[Place] - Final pivot position (front-bottom corner):', target.position);
             
@@ -507,7 +504,11 @@
             console.log('[Place] - This is a REAL distance in meters from the AR system');
          } catch(_) {}
        } else {
-         target.position.y += 0.05;
+         // For cube or other objects, just place at target position
+         target.position.copy(targetPosition);
+         target.quaternion.copy(targetQuaternion);
+         target.position.y += 0.05; // Slightly above surface
+         console.log('[Place] Cube positioned at:', target.position);
        }
       
       target.visible = true;
