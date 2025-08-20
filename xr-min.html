@@ -16,7 +16,7 @@
 <body>
   <div id="overlay" style="position:fixed; inset:0; z-index: 20; pointer-events:auto;">
     <div id="hint">Tap Start AR, then Place. Add ?testCube=1 for 1x1x1m test cube.</div>
-    <div id="build">xr-min build 50 + test cube (fixed corner positioning)</div>
+    <div id="build">xr-min build 50 + test cube (front center positioning)</div>
     <div id="ui">
       <button id="start">Start AR</button>
       <button id="place" disabled>Place</button>
@@ -639,9 +639,9 @@
          const cubeSize = 1.0; // 1 meter
          const halfSize = cubeSize / 2; // 0.5 meters
          
-         // Position so the FRONT-BOTTOM CORNER (not center) is exactly at the reticle
-         // This means the front-left corner of the cube should be at the reticle position
-         target.position.x = targetPosition.x + halfSize; // Move cube RIGHT so front-left corner is at reticle
+         // Position so the CENTER of the FRONT-BOTTOM EDGE is exactly at the reticle
+         // This means the middle of the front face should be at the reticle position
+         target.position.x = targetPosition.x; // Cube center X = reticle X (centers the front face)
          target.position.y = targetPosition.y + halfSize; // Move up by 0.5m so bottom touches surface  
          target.position.z = targetPosition.z - halfSize; // Move BACK by 0.5m so front face is at reticle Z
          
@@ -653,20 +653,20 @@
          console.log('[Place] - Cube size: 1x1x1 meters');
          console.log('[Place] - Target position (reticle):', targetPosition);
          console.log('[Place] - Cube center position:', target.position);
-         const frontBottomCorner = {
-           x: target.position.x - halfSize, // Front-left corner X (should be at reticle)
+         const frontBottomCenter = {
+           x: target.position.x,            // Front face center X (should be at reticle)
            y: target.position.y - halfSize, // Bottom edge Y  
            z: target.position.z + halfSize  // Front edge Z
          };
          
-         console.log('[Place] - Front-bottom corner at:', frontBottomCorner);
+         console.log('[Place] - Front-bottom CENTER at:', frontBottomCenter);
          console.log('[Place] - Should match reticle position:', targetPosition);
-         console.log('[Place] - X difference (should be 0):', Math.abs(frontBottomCorner.x - targetPosition.x).toFixed(6), 'm');
-         console.log('[Place] - Y difference (should be 0):', Math.abs(frontBottomCorner.y - targetPosition.y).toFixed(6), 'm');
-         console.log('[Place] - Z difference (should be 0):', Math.abs(frontBottomCorner.z - targetPosition.z).toFixed(6), 'm');
+         console.log('[Place] - X difference (should be 0):', Math.abs(frontBottomCenter.x - targetPosition.x).toFixed(6), 'm');
+         console.log('[Place] - Y difference (should be 0):', Math.abs(frontBottomCenter.y - targetPosition.y).toFixed(6), 'm');
+         console.log('[Place] - Z difference (should be 0):', Math.abs(frontBottomCenter.z - targetPosition.z).toFixed(6), 'm');
          console.log('[Place] - POSITIONING CHECK: Cube front edge spans from X:', (target.position.x - halfSize).toFixed(3), 'to', (target.position.x + halfSize).toFixed(3));
-         console.log('[Place] - POSITIONING CHECK: Reticle at X:', targetPosition.x.toFixed(3), '(should be at LEFT edge of front face)');
-         console.log('[Place] - POSITIONING CHECK: Front-left corner at X:', (target.position.x - halfSize).toFixed(3), '(should match reticle)');    
+         console.log('[Place] - POSITIONING CHECK: Reticle at X:', targetPosition.x.toFixed(3), '(should be at CENTER of front face)');
+         console.log('[Place] - POSITIONING CHECK: Front face center at X:', target.position.x.toFixed(3), '(should match reticle)');
          
        } else {
          // For regular cube or other objects, just place at target position
