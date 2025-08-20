@@ -16,7 +16,7 @@
 <body>
   <div id="overlay" style="position:fixed; inset:0; z-index: 20; pointer-events:auto;">
     <div id="hint">Tap Start AR, then Place.</div>
-    <div id="build">xr-min build 46</div>
+    <div id="build">xr-min build 47</div>
     <div id="ui">
       <button id="start">Start AR</button>
       <button id="place" disabled>Place</button>
@@ -492,11 +492,11 @@
             // - min.y (bottom) ends up at targetPosition.y
             // - max.z (front) ends up at targetPosition.z
             
-            // Position so the FRONT-BOTTOM corner is exactly AT the target position
-            // The airplane's pivot is at its center, so we need to offset to place front at target
-            target.position.x = targetPosition.x; // X centered at target  
-            target.position.y = targetPosition.y - min.y; // Bottom touches target surface
-            target.position.z = targetPosition.z - max.z; // Move airplane back so FRONT is at target Z
+            // SIMPLIFIED: Place airplane CENTER at the target position for now
+            // We'll figure out which end is the front later
+            target.position.x = targetPosition.x; // X at target
+            target.position.y = targetPosition.y - min.y; // Bottom touches surface (this part is correct)
+            target.position.z = targetPosition.z; // CENTER at target Z (not offset)
             
             console.log('[Place] Y POSITIONING DEBUG (FIXED):');
             console.log('[Place] - Target Y (where bottom should be):', targetPosition.y.toFixed(6));
@@ -505,28 +505,26 @@
             console.log('[Place] - Expected bottom Y:', (target.position.y + min.y).toFixed(6), '(should equal target Y)');
             console.log('[Place] - Using ORIGINAL dimensions, not corrupted bounding box');
             
-            // ROTATION: Make airplane face toward the camera
+            // SIMPLIFIED ROTATION: Keep airplane in default orientation for now
+            // Just use the reticle's rotation (surface-aligned)
+            target.quaternion.copy(targetQuaternion);
+            
+            // Log camera and rotation info for debugging
             const cameraDirection = new THREE.Vector3();
             camera.getWorldDirection(cameraDirection);
-            // Airplane should face opposite to camera direction (so front faces camera)
-            const airplaneDirection = cameraDirection.clone().multiplyScalar(-1);
-            // Calculate rotation to face that direction
-            const targetRotation = new THREE.Quaternion();
-            targetRotation.setFromUnitVectors(new THREE.Vector3(0, 0, 1), airplaneDirection.normalize());
-            target.quaternion.copy(targetRotation);
             
             console.log('[Place] ROTATION:');
             console.log('[Place] - Camera direction:', cameraDirection);
-            console.log('[Place] - Airplane should face:', airplaneDirection);
-            console.log('[Place] - Applied rotation:', targetRotation);
+            console.log('[Place] - Using reticle rotation (surface-aligned)');
+            console.log('[Place] - Applied rotation:', target.quaternion);
             
             console.log('[Place] CALCULATED POSITIONING:');
             console.log('[Place] - Target position:', targetPosition);
             console.log('[Place] - Object bottom offset:', min.y.toFixed(3), 'm');
-            console.log('[Place] - Object front offset:', max.z.toFixed(3), 'm');
+            console.log('[Place] - Object depth (front to back):', max.z.toFixed(3), 'm');
             console.log('[Place] - Final object position:', target.position);
             console.log('[Place] - Bottom should now be at target Y:', targetPosition.y.toFixed(3), 'm');
-            console.log('[Place] - Front should now be at target Z:', targetPosition.z.toFixed(3), 'm');
+            console.log('[Place] - CENTER should now be at target Z:', targetPosition.z.toFixed(3), 'm');
             
             console.log('[Place] - Final pivot position (front-bottom corner):', target.position);
             
@@ -534,19 +532,31 @@
             console.log('[Place] - Final object position:', target.position);
             console.log('[Place] - Reticle position (target):', reticle.position);
             
-            // Calculate where the front-bottom corner actually is using CONSISTENT dimensions
-            const frontBottomCorner = {
-                x: target.position.x, // X stays centered
-                y: target.position.y + min.y,     // Bottom of the airplane using original min
-                z: target.position.z + max.z      // Front of the airplane using original max
+            // Calculate where the airplane parts actually are relative to reticle
+            const airplaneBottom = {
+                x: target.position.x,
+                y: target.position.y + min.y,     // Bottom of the airplane
+                z: target.position.z
+            };
+            const airplaneFront = {
+                x: target.position.x,
+                y: target.position.y,
+                z: target.position.z + max.z      // Front edge (assuming +Z is front)
+            };
+            const airplaneBack = {
+                x: target.position.x,
+                y: target.position.y,
+                z: target.position.z + min.z      // Back edge (assuming -Z is back)
             };
             
-            console.log('[Place] - VERIFICATION (using original dimensions): Front-bottom corner now at:', frontBottomCorner);
-            console.log('[Place] - Should match reticle position:', targetPosition);
-            console.log('[Place] - CALCULATED bottom at Y:', frontBottomCorner.y.toFixed(3), 'm (should match target:', targetPosition.y.toFixed(3), 'm)');
-            console.log('[Place] - CALCULATED front at Z:', frontBottomCorner.z.toFixed(3), 'm (should match target:', targetPosition.z.toFixed(3), 'm)');
-            console.log('[Place] - Position difference Y:', Math.abs(frontBottomCorner.y - targetPosition.y).toFixed(6), 'm (should be ~0)');
-            console.log('[Place] - Position difference Z:', Math.abs(frontBottomCorner.z - targetPosition.z).toFixed(6), 'm (should be ~0)');
+            console.log('[Place] - AIRPLANE POSITIONING CHECK:');
+            console.log('[Place] - Reticle (target):', targetPosition);
+            console.log('[Place] - Airplane CENTER:', target.position);
+            console.log('[Place] - Airplane BOTTOM:', airplaneBottom);
+            console.log('[Place] - Airplane FRONT (+Z):', airplaneFront);
+            console.log('[Place] - Airplane BACK (-Z):', airplaneBack);
+            console.log('[Place] - Distance from reticle to airplane center:', camera.position.distanceTo(target.position).toFixed(3), 'm');
+            console.log('[Place] - Distance from reticle to airplane front:', camera.position.distanceTo(new THREE.Vector3(airplaneFront.x, airplaneFront.y, airplaneFront.z)).toFixed(3), 'm');
           
                        // Scale verification
             console.log('[Place] SCALE VERIFICATION:');
