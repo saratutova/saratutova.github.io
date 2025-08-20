@@ -16,7 +16,7 @@
 <body>
   <div id="overlay" style="position:fixed; inset:0; z-index: 20; pointer-events:auto;">
     <div id="hint">Tap Start AR, then Place.</div>
-    <div id="build">xr-min build 41</div>
+    <div id="build">xr-min build 42</div>
     <div id="ui">
       <button id="start">Start AR</button>
       <button id="place" disabled>Place</button>
@@ -454,9 +454,18 @@
             // - min.y (bottom) ends up at targetPosition.y
             // - max.z (front) ends up at targetPosition.z
             
+            // CRITICAL: Position so the BOTTOM of the airplane touches the target surface
+            // If min.y = -0.014, the bottom is 0.014m below the object origin
+            // To place bottom AT targetPosition.y, we need object origin at targetPosition.y + 0.014
             target.position.x = targetPosition.x; // X at target (no centering)
-            target.position.y = targetPosition.y - min.y; // Bottom at target Y level  
+            target.position.y = targetPosition.y - min.y; // Move object up so bottom is at target  
             target.position.z = targetPosition.z - max.z; // Front at target Z position
+            
+            console.log('[Place] Y POSITIONING DEBUG:');
+            console.log('[Place] - Target Y (where bottom should be):', targetPosition.y.toFixed(6));
+            console.log('[Place] - Object min.y (bottom offset):', min.y.toFixed(6));
+            console.log('[Place] - Object origin Y set to:', target.position.y.toFixed(6));
+            console.log('[Place] - Calculated bottom Y:', (target.position.y + min.y).toFixed(6), '(should equal target Y)');
             target.quaternion.copy(targetQuaternion);
             
             console.log('[Place] CALCULATED POSITIONING:');
