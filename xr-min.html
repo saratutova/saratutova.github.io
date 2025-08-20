@@ -16,7 +16,7 @@
 <body>
   <div id="overlay" style="position:fixed; inset:0; z-index: 20; pointer-events:auto;">
     <div id="hint">Tap Start AR, then Place.</div>
-    <div id="build">xr-min build 50</div>
+    <div id="build">xr-min build 51</div>
     <div id="ui">
       <button id="start">Start AR</button>
       <button id="place" disabled>Place</button>
@@ -492,9 +492,9 @@
             // - min.y (bottom) ends up at targetPosition.y
             // - max.z (front) ends up at targetPosition.z
             
-            // PRECISE Y-POSITIONING: Ensure bottom touches the surface exactly
+            // PRECISE POSITIONING: Front tip AT the reticle position
             target.position.x = targetPosition.x; // X at target
-            target.position.z = targetPosition.z; // CENTER at target Z (not offset)
+            target.position.z = targetPosition.z - max.z; // Move airplane back so FRONT TIP is at target Z
             
             // Y-positioning: Make sure the absolute bottom of the airplane touches the surface
             // If min.y = 0, then bottom is at object origin level
@@ -542,7 +542,7 @@
             console.log('[Place] - Object depth (front to back):', max.z.toFixed(3), 'm');
             console.log('[Place] - Final object position:', target.position);
             console.log('[Place] - Bottom should now be at target Y:', targetPosition.y.toFixed(3), 'm');
-            console.log('[Place] - CENTER should now be at target Z:', targetPosition.z.toFixed(3), 'm');
+            console.log('[Place] - FRONT TIP should now be at target Z:', targetPosition.z.toFixed(3), 'm');
             
             console.log('[Place] - Final pivot position (front-bottom corner):', target.position);
             
@@ -556,10 +556,10 @@
                 y: target.position.y + min.y,     // Bottom of the airplane
                 z: target.position.z
             };
-            const airplaneFront = {
+            const airplaneFrontTip = {
                 x: target.position.x,
                 y: target.position.y,
-                z: target.position.z + max.z      // Front edge (assuming +Z is front)
+                z: target.position.z + max.z      // Front tip/nose (should be AT reticle now)
             };
             const airplaneBack = {
                 x: target.position.x,
@@ -571,10 +571,17 @@
             console.log('[Place] - Reticle (target):', targetPosition);
             console.log('[Place] - Airplane CENTER:', target.position);
             console.log('[Place] - Airplane BOTTOM:', airplaneBottom);
-            console.log('[Place] - Airplane FRONT (+Z):', airplaneFront);
+            console.log('[Place] - Airplane FRONT TIP:', airplaneFrontTip);
             console.log('[Place] - Airplane BACK (-Z):', airplaneBack);
             console.log('[Place] - Distance from reticle to airplane center:', camera.position.distanceTo(target.position).toFixed(3), 'm');
-            console.log('[Place] - Distance from reticle to airplane front:', camera.position.distanceTo(new THREE.Vector3(airplaneFront.x, airplaneFront.y, airplaneFront.z)).toFixed(3), 'm');
+            console.log('[Place] - Distance from reticle to airplane front tip:', camera.position.distanceTo(new THREE.Vector3(airplaneFrontTip.x, airplaneFrontTip.y, airplaneFrontTip.z)).toFixed(3), 'm');
+            
+            // CRITICAL: Verify front tip is exactly at reticle position
+            console.log('[Place] - FRONT TIP VERIFICATION:');
+            console.log('[Place] - Front tip Z position:', airplaneFrontTip.z.toFixed(6));
+            console.log('[Place] - Target reticle Z position:', targetPosition.z.toFixed(6));
+            console.log('[Place] - Z difference (should be 0):', Math.abs(airplaneFrontTip.z - targetPosition.z).toFixed(6), 'm');
+            console.log('[Place] - Front tip matches reticle:', Math.abs(airplaneFrontTip.z - targetPosition.z) < 0.001 ? 'CORRECT' : 'WRONG');
             
             // Add visual reference - how high above "floor level" are we?
             console.log('[Place] FLOOR REFERENCE CHECK:');
