@@ -16,7 +16,7 @@
 <body>
   <div id="overlay" style="position:fixed; inset:0; z-index: 20; pointer-events:auto;">
     <div id="hint">Tap Start AR, then Place.</div>
-    <div id="build">xr-min build 40</div>
+    <div id="build">xr-min build 41</div>
     <div id="ui">
       <button id="start">Start AR</button>
       <button id="place" disabled>Place</button>
@@ -84,8 +84,8 @@
       renderer.setClearColor(0x000000, 0);
     }
 
-    // Improved reticle - larger and more visible
-    const reticleGeo = new THREE.RingGeometry(0.12, 0.16, 32).rotateX(-Math.PI/2);
+    // Reticle - normal size and visible
+    const reticleGeo = new THREE.RingGeometry(0.06, 0.08, 32).rotateX(-Math.PI/2);
     const reticleMat = new THREE.MeshBasicMaterial({ 
       color: 0x00ffcc, 
       transparent: true, 
@@ -324,27 +324,28 @@
           target.scale.setScalar(1);
           console.log('[Place] reset scale to 1');
           
-          // Apply base scale (1:1 real size first, then default AR scale)
+          // Apply base scale (force to MASSIVE real-world size)
           try {
             if (originalModelDimensions) {
-              // First get to real 1:1 scale
+              // FORCE to real airplane scale - much bigger than before
               const expectedHeight = 13.53; // Real airplane height in meters
               const realScaleFactor = expectedHeight / originalModelDimensions.y;
               
-              // Then apply default AR scale for comfortable viewing
-              const finalScaleFactor = realScaleFactor * defaultArScale;
+              // Apply extra scaling to make sure it's TRULY massive
+              const finalScaleFactor = realScaleFactor * defaultArScale * 3.0; // 3x bigger to ensure visibility
               
               if (Number.isFinite(finalScaleFactor) && finalScaleFactor > 0) {
                 target.scale.setScalar(finalScaleFactor);
                 console.log('[Place] SCALING - original height:', originalModelDimensions.y.toFixed(3), 'm');
                 console.log('[Place] Real scale factor:', realScaleFactor.toFixed(6), '(to 13.53m real size)');
                 console.log('[Place] AR scale factor:', defaultArScale, '(1.0 = real world size)');
+                console.log('[Place] Extra scale factor: 3.0 (to ensure massive size)');
                 console.log('[Place] Final scale factor:', finalScaleFactor.toFixed(6));
-                console.log('[Place] Final airplane height:', (13.53 * defaultArScale).toFixed(3), 'm (REAL WORLD SIZE)');
+                console.log('[Place] Final airplane height:', (13.53 * defaultArScale * 3.0).toFixed(3), 'm (MASSIVE!)');
               }
             } else {
-              console.log('[Place] No original dimensions available, using default AR scale');
-              target.scale.setScalar(defaultArScale);
+              console.log('[Place] No original dimensions available, using 3x default scale');
+              target.scale.setScalar(defaultArScale * 3.0);
             }
           } catch(_) {
             console.log('[Place] Failed to apply scaling');
@@ -453,7 +454,7 @@
             // - min.y (bottom) ends up at targetPosition.y
             // - max.z (front) ends up at targetPosition.z
             
-            target.position.x = targetPosition.x - (min.x + max.x) / 2; // Center X on target
+            target.position.x = targetPosition.x; // X at target (no centering)
             target.position.y = targetPosition.y - min.y; // Bottom at target Y level  
             target.position.z = targetPosition.z - max.z; // Front at target Z position
             target.quaternion.copy(targetQuaternion);
