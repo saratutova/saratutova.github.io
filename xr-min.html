@@ -16,7 +16,7 @@
 <body>
   <div id="overlay" style="position:fixed; inset:0; z-index: 20; pointer-events:auto;">
     <div id="hint">Tap Start AR, then Place.</div>
-    <div id="build">xr-min build 51</div>
+    <div id="build">xr-min build 52</div>
     <div id="ui">
       <button id="start">Start AR</button>
       <button id="place" disabled>Place</button>
@@ -501,9 +501,8 @@
             // If min.y < 0, then bottom is BELOW object origin
             // We want: target.position.y + min.y = targetPosition.y (surface level)
             // Therefore: target.position.y = targetPosition.y - min.y
-            // FORCE airplane to touch ground - push it down MUCH more aggressively
-            // The model's actual landing gear is probably 2-3m higher than bounding box suggests
-            const surfaceOffset = -3.0; // Push 3 METERS BELOW surface to force contact
+            // Position airplane so bottom touches the surface (no offset needed)
+            const surfaceOffset = 0.0; // No offset - place at surface level
             target.position.y = targetPosition.y - min.y + surfaceOffset;
             
             console.log('[Place] Y-POSITIONING DETAILED DEBUG:');
@@ -512,9 +511,9 @@
             console.log('[Place] - Object origin placed at Y:', target.position.y.toFixed(6));
             console.log('[Place] - Calculated bottom Y (origin + min.y):', (target.position.y + min.y).toFixed(6));
             console.log('[Place] - Bottom vs surface difference:', Math.abs((target.position.y + min.y) - targetPosition.y).toFixed(6), 'm');
-            console.log('[Place] - Applied surface offset:', surfaceOffset, 'm (NEGATIVE = pushing 3 METERS below surface)');
+            console.log('[Place] - Applied surface offset:', surfaceOffset, 'm (0 = exactly at surface level)');
             console.log('[Place] - Bottom should equal surface:', Math.abs((target.position.y + min.y) - targetPosition.y - surfaceOffset) < 0.001 ? 'CORRECT' : 'WRONG');
-            console.log('[Place] - FORCING airplane 3 METERS below surface to ensure visual contact');
+            console.log('[Place] - Placing airplane exactly at surface level');
             
             console.log('[Place] Y POSITIONING DEBUG (FIXED):');
             console.log('[Place] - Target Y (where bottom should be):', targetPosition.y.toFixed(6));
@@ -587,8 +586,8 @@
             console.log('[Place] FLOOR REFERENCE CHECK:');
             console.log('[Place] - Camera Y position:', camera.position.y.toFixed(3), 'm (camera height above world origin)');
             console.log('[Place] - Surface Y position:', targetPosition.y.toFixed(3), 'm (detected surface height)');
-            console.log('[Place] - Airplane bottom Y:', (target.position.y + min.y).toFixed(3), 'm (FORCED 3m below surface)');
-            console.log('[Place] - Actual distance below surface:', Math.abs((target.position.y + min.y) - targetPosition.y).toFixed(3), 'm');
+            console.log('[Place] - Airplane bottom Y:', (target.position.y + min.y).toFixed(3), 'm (at surface level)');
+            console.log('[Place] - Distance from surface (should be 0):', Math.abs((target.position.y + min.y) - targetPosition.y).toFixed(3), 'm');
             console.log('[Place] - Height difference: camera vs surface:', (camera.position.y - targetPosition.y).toFixed(3), 'm');
             console.log('[Place] - Height difference: camera vs airplane bottom:', (camera.position.y - (target.position.y + min.y)).toFixed(3), 'm');
           
