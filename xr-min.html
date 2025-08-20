@@ -16,7 +16,7 @@
 <body>
   <div id="overlay" style="position:fixed; inset:0; z-index: 20; pointer-events:auto;">
     <div id="hint">Tap Start AR, then Place. Add ?testCube=1 for 1x1x1m test cube.</div>
-    <div id="build">xr-min build 50 + test cube</div>
+    <div id="build">xr-min build 50 + test cube (fixed)</div>
     <div id="ui">
       <button id="start">Start AR</button>
       <button id="place" disabled>Place</button>
@@ -643,17 +643,11 @@
          // Cube origin is at center, so we need to offset by half-size
          target.position.x = targetPosition.x;
          target.position.y = targetPosition.y + halfSize; // Move up by 0.5m so bottom touches surface
-         target.position.z = targetPosition.z + halfSize; // Move back by 0.5m so front edge is at reticle
+         target.position.z = targetPosition.z - halfSize; // Move BACK by 0.5m so front edge is at reticle
          
-         // Make cube face the camera
-         const cameraDirection = new THREE.Vector3();
-         camera.getWorldDirection(cameraDirection);
-         // Cube should face opposite to camera direction (so front faces camera)
-         const cubeDirection = cameraDirection.clone().multiplyScalar(-1);
-         // Calculate rotation to face that direction  
-         const cubeRotation = new THREE.Quaternion();
-         cubeRotation.setFromUnitVectors(new THREE.Vector3(0, 0, 1), cubeDirection.normalize());
-         target.quaternion.copy(cubeRotation);
+         // Use fixed rotation (no camera-following)
+         // Just use the reticle's surface-aligned rotation for stability
+         target.quaternion.copy(targetQuaternion);
          
          console.log('[Place] TEST CUBE positioned:');
          console.log('[Place] - Cube size: 1x1x1 meters');
@@ -661,11 +655,13 @@
          console.log('[Place] - Cube center position:', target.position);
          console.log('[Place] - Front-bottom corner at:', {
            x: target.position.x,
-           y: target.position.y - halfSize,
-           z: target.position.z - halfSize
+           y: target.position.y - halfSize,  // Bottom edge
+           z: target.position.z + halfSize   // Front edge
          });
-         console.log('[Place] - Camera direction:', cameraDirection);
-         console.log('[Place] - Cube facing direction:', cubeDirection);
+         console.log('[Place] - Should match reticle position:', targetPosition);
+         console.log('[Place] - X difference:', Math.abs(target.position.x - targetPosition.x).toFixed(6), 'm');
+         console.log('[Place] - Y difference:', Math.abs((target.position.y - halfSize) - targetPosition.y).toFixed(6), 'm');
+         console.log('[Place] - Z difference:', Math.abs((target.position.z + halfSize) - targetPosition.z).toFixed(6), 'm');
          
        } else {
          // For regular cube or other objects, just place at target position
