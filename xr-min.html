@@ -16,10 +16,12 @@
 <body>
   <div id="overlay" style="position:fixed; inset:0; z-index: 20; pointer-events:auto;">
     <div id="hint">Tap Start AR, then Place. Add ?testCube=1 for 1x1x1m test cube.</div>
-    <div id="build">xr-min build 55 + fixed airplane visibility (container approach)</div>
+    <div id="build">xr-min build 56 + test cube buttons + GLB metadata analysis</div>
     <div id="ui">
       <button id="start">Start AR</button>
       <button id="place" disabled>Place</button>
+      <button id="placeCube1" disabled>Place Cube 1</button>
+      <button id="placeCube2" disabled>Place Cube 2</button>
       <button id="exit" disabled>Exit</button>
       <button id="logs">Download logs</button>
     </div>
@@ -65,6 +67,8 @@
     const hint = document.getElementById('hint');
     const startBtn = document.getElementById('start');
     const placeBtn = document.getElementById('place');
+    const placeCube1Btn = document.getElementById('placeCube1');
+    const placeCube2Btn = document.getElementById('placeCube2');
     const exitBtn = document.getElementById('exit');
     const logsBtn = document.getElementById('logs');
 
@@ -143,6 +147,10 @@
     let model = null; let modelLoaded = false; let modelOriginalMaxDim = null; let modelScaleApplied = false;
     let originalModelDimensions = null; // Store original dimensions to prevent scaling issues
     let originalModelClone = null; // Store a clean copy of the original model
+    
+    // Test cube models from GLB files
+    let testCube1Model = null; let testCube1Loaded = false; let testCube1Dimensions = null;
+    let testCube2Model = null; let testCube2Loaded = false; let testCube2Dimensions = null;
 
     async function initModelLoader() {
       async function loadScript(url) {
@@ -204,14 +212,62 @@
                  model = modelContainer;
                  modelLoaded = true;
                  
-                 // Store the original model dimensions and a clean copy
+                 // Store the original model dimensions and analyze actual geometry
                  try { 
                    const bb = new THREE.Box3().setFromObject(model); 
                    const szz = new THREE.Vector3(); 
                    bb.getSize(szz); 
                    originalModelDimensions = { x: szz.x, y: szz.y, z: szz.z };
                    originalModelClone = model.clone(true); // Store a clean copy
+                   
                    console.log('[Model] GLB loaded via A-Frame fallback', glbUrl, 'final size m=', originalModelDimensions);
+                   console.log('[Model] A-FRAME BOUNDING BOX ANALYSIS:');
+                   console.log('[Model] - Bounding box min:', bb.min);
+                   console.log('[Model] - Bounding box max:', bb.max);
+                   console.log('[Model] - Bounding box center:', bb.getCenter(new THREE.Vector3()));
+                   
+                   // Analyze actual vertex data
+                   let minY = Infinity;
+                   let maxY = -Infinity;
+                   let minZ = Infinity;
+                   let maxZ = -Infinity;
+                   let vertexCount = 0;
+                   
+                   model.traverse((child) => {
+                     if (child.isMesh && child.geometry) {
+                       const geometry = child.geometry;
+                       const positionAttribute = geometry.attributes.position;
+                       
+                       if (positionAttribute) {
+                         child.updateMatrixWorld();
+                         const vertex = new THREE.Vector3();
+                         
+                         for (let i = 0; i < positionAttribute.count; i++) {
+                           vertex.fromBufferAttribute(positionAttribute, i);
+                           vertex.applyMatrix4(child.matrixWorld);
+                           
+                           minY = Math.min(minY, vertex.y);
+                           maxY = Math.max(maxY, vertex.y);
+                           minZ = Math.min(minZ, vertex.z);
+                           maxZ = Math.max(maxZ, vertex.z);
+                           vertexCount++;
+                         }
+                       }
+                     }
+                   });
+                   
+                   console.log('[Model] A-FRAME VERTEX ANALYSIS:');
+                   console.log('[Model] - Total vertices analyzed:', vertexCount);
+                   console.log('[Model] - Actual Y range (height):', minY, 'to', maxY, '=', maxY - minY, 'm');
+                   console.log('[Model] - Actual Z range (depth):', minZ, 'to', maxZ, '=', maxZ - minZ, 'm');
+                   console.log('[Model] - BOTTOM difference: bbox.min.y =', bb.min.y, 'vs actual minY =', minY, 'diff =', bb.min.y - minY);
+                   
+                   // Store real bottom for accurate ground positioning
+                   window.realModelBottom = minY;
+                   window.realModelTop = maxY;
+                   window.realModelFront = maxZ;
+                   window.realModelBack = minZ;
+                   
                    console.log('[Model] Original dimensions and clean copy stored');
                  } catch(_) { console.log('[Model] GLB loaded via A-Frame fallback', glbUrl); }
                 done(true);
@@ -277,6 +333,40 @@
         loader.load(resolvedModel, (gltf) => {
           model = gltf.scene || (gltf.scenes && gltf.scenes[0]);
           if (!model) { console.log('[Model] GLB had no scene, fallback cube'); return; }
+          
+          // DEBUG: Extract all GLB metadata and information
+          console.log('[Model] GLB METADATA ANALYSIS:');
+          console.log('[Model] - Full GLTF object:', gltf);
+          console.log('[Model] - Asset info:', gltf.asset);
+          console.log('[Model] - Scene userData:', gltf.scene ? gltf.scene.userData : 'no scene');
+          console.log('[Model] - Scenes:', gltf.scenes);
+          console.log('[Model] - Nodes:', gltf.nodes);
+          console.log('[Model] - Parser:', gltf.parser);
+          
+          // Check for unit information in various places
+          if (gltf.asset) {
+            console.log('[Model] - Asset version:', gltf.asset.version);
+            console.log('[Model] - Asset generator:', gltf.asset.generator);
+            console.log('[Model] - Asset extras:', gltf.asset.extras);
+          }
+          
+          // Check scene scale and transforms
+          if (gltf.scene) {
+            console.log('[Model] - Scene matrix:', gltf.scene.matrix);
+            console.log('[Model] - Scene matrixWorld:', gltf.scene.matrixWorld);
+            console.log('[Model] - Scene scale:', gltf.scene.scale);
+            console.log('[Model] - Scene position:', gltf.scene.position);
+            console.log('[Model] - Scene rotation:', gltf.scene.rotation);
+          }
+          
+          // Check for extensions with unit data
+          if (gltf.parser && gltf.parser.json) {
+            console.log('[Model] - JSON asset:', gltf.parser.json.asset);
+            console.log('[Model] - JSON extensions:', gltf.parser.json.extensions);
+            console.log('[Model] - JSON extensionsUsed:', gltf.parser.json.extensionsUsed);
+            console.log('[Model] - JSON extensionsRequired:', gltf.parser.json.extensionsRequired);
+          }
+          
           if (basicMat) {
             model.traverse((child) => {
               if (child.isMesh && child.material) {
@@ -303,16 +393,68 @@
           model = modelContainer;
           modelLoaded = true;
           
-          // Store the original model dimensions and a clean copy
+          // Store the original model dimensions and analyze actual geometry
           try { 
             const bb = new THREE.Box3().setFromObject(model); 
             const szz = new THREE.Vector3(); 
             bb.getSize(szz); 
             originalModelDimensions = { x: szz.x, y: szz.y, z: szz.z };
             originalModelClone = model.clone(true); // Store a clean copy
+            
             console.log('[Model] GLB loaded', resolvedModel, 'final size m=', originalModelDimensions);
+            console.log('[Model] BOUNDING BOX ANALYSIS:');
+            console.log('[Model] - Bounding box min:', bb.min);
+            console.log('[Model] - Bounding box max:', bb.max);
+            console.log('[Model] - Bounding box center:', bb.getCenter(new THREE.Vector3()));
+            
+            // Analyze actual vertex data to understand real geometry
+            let minY = Infinity;
+            let maxY = -Infinity;
+            let minZ = Infinity;
+            let maxZ = -Infinity;
+            let vertexCount = 0;
+            
+            model.traverse((child) => {
+              if (child.isMesh && child.geometry) {
+                const geometry = child.geometry;
+                const positionAttribute = geometry.attributes.position;
+                
+                if (positionAttribute) {
+                  // Apply world matrix to get real positions
+                  child.updateMatrixWorld();
+                  const vertex = new THREE.Vector3();
+                  
+                  for (let i = 0; i < positionAttribute.count; i++) {
+                    vertex.fromBufferAttribute(positionAttribute, i);
+                    vertex.applyMatrix4(child.matrixWorld);
+                    
+                    minY = Math.min(minY, vertex.y);
+                    maxY = Math.max(maxY, vertex.y);
+                    minZ = Math.min(minZ, vertex.z);
+                    maxZ = Math.max(maxZ, vertex.z);
+                    vertexCount++;
+                  }
+                }
+              }
+            });
+            
+            console.log('[Model] VERTEX ANALYSIS:');
+            console.log('[Model] - Total vertices analyzed:', vertexCount);
+            console.log('[Model] - Actual Y range (height):', minY, 'to', maxY, '=', maxY - minY, 'm');
+            console.log('[Model] - Actual Z range (depth):', minZ, 'to', maxZ, '=', maxZ - minZ, 'm');
+            console.log('[Model] - BOTTOM difference: bbox.min.y =', bb.min.y, 'vs actual minY =', minY, 'diff =', bb.min.y - minY);
+            console.log('[Model] - TOP difference: bbox.max.y =', bb.max.y, 'vs actual maxY =', maxY, 'diff =', bb.max.y - maxY);
+            
+            // Store real bottom for accurate ground positioning
+            window.realModelBottom = minY;
+            window.realModelTop = maxY;
+            window.realModelFront = maxZ;
+            window.realModelBack = minZ;
+            
             console.log('[Model] Original dimensions and clean copy stored');
-          } catch(_) { console.log('[Model] GLB loaded ' + resolvedModel); }
+          } catch(err) { 
+            console.log('[Model] GLB loaded ' + resolvedModel, 'dimension analysis failed:', err); 
+          }
         }, undefined, async (err) => {
           console.log('[Model] load error ' + String(err));
           try { if (!modelLoaded) await tryAframeFallbackLoader(resolvedModel); } catch(_) {}
@@ -322,8 +464,126 @@
         try { if (!modelLoaded) await tryAframeFallbackLoader(resolvedModel); } catch(_) {}
       }
     }
+    
+    // Load test cube GLB files
+    async function loadTestCube(cubeNumber, glbPath) {
+      try {
+        const loader = new THREE.GLTFLoader();
+        loader.load(glbPath, (gltf) => {
+          let cubeModel = gltf.scene || (gltf.scenes && gltf.scenes[0]);
+          if (!cubeModel) { 
+            console.log(`[TestCube${cubeNumber}] GLB had no scene, failed to load`); 
+            return; 
+          }
+          
+          // DEBUG: Extract GLB metadata for test cube
+          console.log(`[TestCube${cubeNumber}] GLB METADATA ANALYSIS:`);
+          console.log(`[TestCube${cubeNumber}] - Full GLTF object:`, gltf);
+          console.log(`[TestCube${cubeNumber}] - Asset info:`, gltf.asset);
+          console.log(`[TestCube${cubeNumber}] - Scene userData:`, gltf.scene ? gltf.scene.userData : 'no scene');
+          
+          if (gltf.asset) {
+            console.log(`[TestCube${cubeNumber}] - Asset version:`, gltf.asset.version);
+            console.log(`[TestCube${cubeNumber}] - Asset generator:`, gltf.asset.generator);
+            console.log(`[TestCube${cubeNumber}] - Asset extras:`, gltf.asset.extras);
+          }
+          
+          if (gltf.scene) {
+            console.log(`[TestCube${cubeNumber}] - Scene scale:`, gltf.scene.scale);
+            console.log(`[TestCube${cubeNumber}] - Scene position:`, gltf.scene.position);
+            console.log(`[TestCube${cubeNumber}] - Scene rotation:`, gltf.scene.rotation);
+          }
+          
+          // Create container with pivot at front-bottom center (same approach as airplane)
+          const cubeContainer = new THREE.Group();
+          
+          cubeModel.visible = false;
+          cubeModel.renderOrder = 9999;
+          cubeModel.traverse((child) => { 
+            if (child.material) { 
+              child.material.depthTest = true; 
+              child.material.depthWrite = true; 
+              child.material.needsUpdate = true; 
+            } 
+          });
+          
+          cubeContainer.add(cubeModel);
+          cubeContainer.visible = false;
+          scene.add(cubeContainer);
+          
+          // Store dimensions and analyze geometry
+          try {
+            const bb = new THREE.Box3().setFromObject(cubeContainer);
+            const size = new THREE.Vector3();
+            bb.getSize(size);
+            
+            console.log(`[TestCube${cubeNumber}] GLB loaded`, glbPath, 'final size m=', size);
+            console.log(`[TestCube${cubeNumber}] BOUNDING BOX ANALYSIS:`);
+            console.log(`[TestCube${cubeNumber}] - Bounding box min:`, bb.min);
+            console.log(`[TestCube${cubeNumber}] - Bounding box max:`, bb.max);
+            console.log(`[TestCube${cubeNumber}] - Bounding box center:`, bb.getCenter(new THREE.Vector3()));
+            
+            // Analyze actual vertex data
+            let minY = Infinity, maxY = -Infinity, minZ = Infinity, maxZ = -Infinity, vertexCount = 0;
+            
+            cubeContainer.traverse((child) => {
+              if (child.isMesh && child.geometry) {
+                const geometry = child.geometry;
+                const positionAttribute = geometry.attributes.position;
+                
+                if (positionAttribute) {
+                  child.updateMatrixWorld();
+                  const vertex = new THREE.Vector3();
+                  
+                  for (let i = 0; i < positionAttribute.count; i++) {
+                    vertex.fromBufferAttribute(positionAttribute, i);
+                    vertex.applyMatrix4(child.matrixWorld);
+                    
+                    minY = Math.min(minY, vertex.y);
+                    maxY = Math.max(maxY, vertex.y);
+                    minZ = Math.min(minZ, vertex.z);
+                    maxZ = Math.max(maxZ, vertex.z);
+                    vertexCount++;
+                  }
+                }
+              }
+            });
+            
+            console.log(`[TestCube${cubeNumber}] VERTEX ANALYSIS:`);
+            console.log(`[TestCube${cubeNumber}] - Total vertices analyzed:`, vertexCount);
+            console.log(`[TestCube${cubeNumber}] - Actual Y range (height):`, minY, 'to', maxY, '=', maxY - minY, 'm');
+            console.log(`[TestCube${cubeNumber}] - Actual Z range (depth):`, minZ, 'to', maxZ, '=', maxZ - minZ, 'm');
+            console.log(`[TestCube${cubeNumber}] - BOTTOM difference: bbox.min.y =`, bb.min.y, 'vs actual minY =', minY, 'diff =', bb.min.y - minY);
+            
+            // Store references
+            if (cubeNumber === 1) {
+              testCube1Model = cubeContainer;
+              testCube1Loaded = true;
+              testCube1Dimensions = { x: size.x, y: size.y, z: size.z };
+            } else if (cubeNumber === 2) {
+              testCube2Model = cubeContainer;
+              testCube2Loaded = true;
+              testCube2Dimensions = { x: size.x, y: size.y, z: size.z };
+            }
+            
+          } catch(err) {
+            console.log(`[TestCube${cubeNumber}] GLB loaded but dimension analysis failed:`, err);
+          }
+          
+        }, undefined, (err) => {
+          console.log(`[TestCube${cubeNumber}] Load error:`, String(err));
+        });
+      } catch (e) {
+        console.log(`[TestCube${cubeNumber}] Loader init failed:`, e && (e.message || String(e)));
+      }
+    }
+    
     // Kick model loading in the background so UI is responsive immediately
     try { initModelLoader(); } catch(_) {}
+    
+    // Load test cubes
+    try { loadTestCube(1, 'models/TESTBOX-frontfacepivot.glb'); } catch(_) {}
+    try { loadTestCube(2, 'models/TESTBOX-centerpivot.glb'); } catch(_) {}
 
     let xrSession = null; let refSpace = null; let viewerSpace = null; let hitSource = null; let autoPlaced = false;
 
@@ -340,12 +600,16 @@
       session.addEventListener('end', ()=>{ 
         startBtn.textContent='Start AR'; 
         placeBtn.disabled=true; 
+        if (placeCube1Btn) placeCube1Btn.disabled=true;
+        if (placeCube2Btn) placeCube2Btn.disabled=true;
         exitBtn.disabled=true; 
         reticle.visible=false; 
         cube.visible=false; 
         // Hide ALL objects when session ends
         if (model) model.visible = false;
         if (testCubeObj) testCubeObj.visible = false;
+        if (testCube1Model) testCube1Model.visible = false;
+        if (testCube2Model) testCube2Model.visible = false;
         console.log('[XR] Session ended - all objects hidden'); 
       });
 
@@ -359,6 +623,8 @@
         hint.textContent = 'Hit test failed - will use camera placement';
       }
       placeBtn.disabled = false;
+      if (placeCube1Btn) placeCube1Btn.disabled = false;
+      if (placeCube2Btn) placeCube2Btn.disabled = false;
       autoPlaced = false;
       if (autoPlace) {
         // Fallback auto-place using camera after 1.5s if no hit yet
@@ -633,6 +899,101 @@
         throw error; // Re-throw so the UI handler can catch it
       }
     }
+    
+    function placeCube(cubeNumber) {
+      try {
+        // Select which test cube to place
+        let target, targetDimensions, targetLoaded;
+        if (cubeNumber === 1) {
+          target = testCube1Model;
+          targetDimensions = testCube1Dimensions;
+          targetLoaded = testCube1Loaded;
+        } else if (cubeNumber === 2) {
+          target = testCube2Model;
+          targetDimensions = testCube2Dimensions;
+          targetLoaded = testCube2Loaded;
+        } else {
+          console.log(`[PlaceCube] Invalid cube number: ${cubeNumber}`);
+          return;
+        }
+        
+        if (!targetLoaded || !target) {
+          console.log(`[PlaceCube${cubeNumber}] Test cube not loaded yet`);
+          return;
+        }
+        
+        // Hide other objects
+        if (model) model.visible = false;
+        if (testCubeObj) testCubeObj.visible = false;
+        if (testCube1Model && cubeNumber !== 1) testCube1Model.visible = false;
+        if (testCube2Model && cubeNumber !== 2) testCube2Model.visible = false;
+        cube.visible = false;
+        
+        // Position at reticle or camera fallback
+        let targetPosition = new THREE.Vector3();
+        let rotationQuaternion = new THREE.Quaternion();
+        
+        if (reticle.visible) {
+          targetPosition.copy(reticle.position);
+          rotationQuaternion.copy(reticle.quaternion);
+        } else {
+          // Fallback: place 2m in front of camera
+          camera.getWorldPosition(targetPosition);
+          const forward = new THREE.Vector3();
+          camera.getWorldDirection(forward);
+          targetPosition.add(forward.multiplyScalar(2));
+          // Face camera
+          const cameraDirection = new THREE.Vector3();
+          camera.getWorldDirection(cameraDirection);
+          const cubeForwardDirection = cameraDirection.clone().multiplyScalar(-1);
+          cubeForwardDirection.y = 0;
+          cubeForwardDirection.normalize();
+          const defaultForward = new THREE.Vector3(0, 0, 1);
+          rotationQuaternion.setFromUnitVectors(defaultForward, cubeForwardDirection);
+        }
+        
+        // Get child model (the actual GLB mesh inside the container)
+        const childModel = target.children[0];
+        if (childModel && targetDimensions) {
+          // No scaling needed - GLB cubes should be proper size from Blender
+          console.log(`[PlaceCube${cubeNumber}] Using original GLB scale`);
+          
+          // Position child model so front-bottom center is at container origin
+          // This logic should match your Blender export exactly
+          childModel.position.set(
+            0,                               // X center
+            targetDimensions.y / 2,          // Move up so bottom touches container origin
+            -targetDimensions.z / 2          // Move back so front is at container origin
+          );
+          
+          childModel.visible = true;
+          
+          console.log(`[PlaceCube${cubeNumber}] GLB CUBE positioned with pivot system:`);
+          console.log(`[PlaceCube${cubeNumber}] - GLB dimensions:`, targetDimensions);
+          console.log(`[PlaceCube${cubeNumber}] - Child model offset from pivot:`, childModel.position);
+          console.log(`[PlaceCube${cubeNumber}] - Child model visible:`, childModel.visible);
+        }
+        
+        // STEP 1: Position the pivot (front-bottom center) exactly at reticle
+        target.position.copy(targetPosition);
+        
+        // STEP 2: Rotate to face camera (rotation happens around the front-bottom center)
+        target.quaternion.copy(rotationQuaternion);
+        
+        // Show the cube
+        target.visible = true;
+        
+        console.log(`[PlaceCube${cubeNumber}] TEST CUBE ${cubeNumber} positioned:`);
+        console.log(`[PlaceCube${cubeNumber}] - Target position (reticle):`, targetPosition);
+        console.log(`[PlaceCube${cubeNumber}] - Pivot position (front-bottom center):`, target.position);
+        console.log(`[PlaceCube${cubeNumber}] - SIMPLE POSITIONING: Pivot IS the front-bottom center!`);
+        console.log(`[PlaceCube${cubeNumber}] - Applied rotation quaternion:`, rotationQuaternion);
+        console.log(`[PlaceCube${cubeNumber}] - GLB file: models/TESTBOX-${cubeNumber === 1 ? 'frontfacepivot' : 'centerpivot'}.glb`);
+        
+      } catch(err) {
+        console.log(`[PlaceCube${cubeNumber}] Error:`, err);
+      }
+    }
 
     function onXRFrame(t, frame){
       const session = frame.session; const pose = frame.getViewerPose(refSpace);
@@ -658,6 +1019,8 @@
     // Bind UI early and robustly
     if (startBtn) startBtn.addEventListener('click', () => { console.log('[UI] Start AR clicked'); try { startAR(); } catch(e){ console.log('[UI] startAR failed', e); } });
     if (placeBtn) placeBtn.addEventListener('click', () => { console.log('[UI] Place clicked'); try { place(); } catch(e){ console.log('[UI] place failed', e); } });
+    if (placeCube1Btn) placeCube1Btn.addEventListener('click', () => { console.log('[UI] Place Cube 1 clicked'); try { placeCube(1); } catch(e){ console.log('[UI] placeCube1 failed', e); } });
+    if (placeCube2Btn) placeCube2Btn.addEventListener('click', () => { console.log('[UI] Place Cube 2 clicked'); try { placeCube(2); } catch(e){ console.log('[UI] placeCube2 failed', e); } });
     if (exitBtn) exitBtn.addEventListener('click', () => { console.log('[UI] Exit clicked'); try { const s = renderer.xr.getSession(); if (s) s.end(); } catch(_) {} });
     if (logsBtn) logsBtn.addEventListener('click', () => {
       try {
