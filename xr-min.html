@@ -16,7 +16,7 @@
 <body>
   <div id="overlay" style="position:fixed; inset:0; z-index: 20; pointer-events:auto;">
     <div id="hint">Tap Start AR, then Place</div>
-    <div id="build">xr-min build 63 + fixed corruption with stored dimensions</div>
+    <div id="build">xr-min build 64 + improved positioning precision</div>
     <div id="ui">
       <button id="start">Start AR</button>
       <button id="place" disabled>Place</button>
@@ -807,8 +807,8 @@
     try { initModelLoader(); } catch(_) {}
     
     // Load test cubes
-    try { loadTestCube(1, 'models/TESTBOX-frontfacepivot.glb'); } catch(_) {}
-    try { loadTestCube(2, 'models/TESTBOX-centerpivot.glb'); } catch(_) {}
+    try { loadTestCube(1, 'models/kostkaV2_centrum_Kolor.glb'); } catch(_) {}
+    try { loadTestCube(2, 'models/kostkaV2_Front.glb'); } catch(_) {}
 
     let xrSession = null; let refSpace = null; let viewerSpace = null; let hitSource = null; let autoPlaced = false;
 
@@ -1147,8 +1147,16 @@
         } else if (modelType.includes('testCube')) {
           actualBottom = (window[`realModelBottom${modelType.slice(-1)}`] || 0) * currentScale;
           actualFront = (window[`realModelFront${modelType.slice(-1)}`] || 0.486) * currentScale;
-          // Test cubes are off-center by 0.136m in X based on original analysis
-          centerX = 0.136 * currentScale;
+          
+          // Check if we're using old TESTBOX or new kostkaV2 files
+          const isOldTestBox = originalDimensions && originalDimensions.x > 1.0; // Old TESTBOX has ~1.035m width
+          if (isOldTestBox) {
+            centerX = 0.136 * currentScale; // Old TESTBOX off-center
+            console.log(`[${logPrefix}] DETECTED: Old TESTBOX file - using known offsets`);
+          } else {
+            centerX = 0; // New kostkaV2 files might be properly centered
+            console.log(`[${logPrefix}] DETECTED: New kostkaV2 file - assuming centered`);
+          }
         } else {
           // Default values
           actualBottom = 0;
@@ -1168,23 +1176,26 @@
         let frontOffset = -actualFront; // Front face at Z=0
         let groundOffset = -actualBottom; // Bottom at Y=0
         
-        // SPECIAL FIX: Test cubes orientation - flip front/back
+        // SPECIAL FIX: Test cubes positioning
         if (modelType.includes('testCube')) {
-          // For test cubes, use back edge as front (flip the cube)
-          frontOffset = actualFront - size.z; // This puts back edge at Z=0
-          console.log(`[${logPrefix}] CUBE ORIENTATION FIX: Flipping front/back`);
+          const isOldTestBox = originalDimensions && originalDimensions.x > 1.0;
+          if (isOldTestBox) {
+            // Old TESTBOX: needs orientation flip and distance adjustment
+            frontOffset = actualFront - size.z - 0.2; // Flip + move 20cm back
+            console.log(`[${logPrefix}] OLD TESTBOX: Flipped + 20cm back`);
+          } else {
+            // New kostkaV2: try front face directly at circle
+            frontOffset = -actualFront; // Front edge at circle center
+            console.log(`[${logPrefix}] NEW KOSTKA: Front edge at circle center`);
+          }
         }
         
-        // SPECIAL FIX: Airplane extra downward adjustment  
+        // SPECIAL FIX: Airplane positioning  
         if (modelType === 'airplane') {
+          // Airplane: nose slightly behind circle for better visibility
+          frontOffset = -actualFront + 0.1; // Move nose 10cm behind circle for better view
           groundOffset = -actualBottom - 2.0; // Extra 2m down for landing gear
-          console.log(`[${logPrefix}] AIRPLANE HEIGHT FIX: Extra 2m downward adjustment`);
-        }
-        
-        // SPECIAL FIX: Test cubes distance - move them back more
-        if (modelType.includes('testCube')) {
-          frontOffset = frontOffset - 0.3; // Move cubes 30cm further back
-          console.log(`[${logPrefix}] CUBE DISTANCE FIX: Moving 30cm further from camera`);
+          console.log(`[${logPrefix}] AIRPLANE POSITIONING: Nose 10cm behind circle, extra 2m down`);
         }
         
         childModel.position.set(
