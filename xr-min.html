@@ -16,7 +16,7 @@
 <body>
   <div id="overlay" style="position:fixed; inset:0; z-index: 20; pointer-events:auto;">
     <div id="hint">Tap Start AR, then Place. Add ?testCube=1 for 1x1x1m test cube.</div>
-    <div id="build">xr-min build 50 + test cube (camera-facing front)</div>
+    <div id="build">xr-min build 51 + multi-colored test cube (debug orientation)</div>
     <div id="ui">
       <button id="start">Start AR</button>
       <button id="place" disabled>Place</button>
@@ -112,13 +112,18 @@
     scene.add(cube);
 
     // Test cube - exactly 1x1x1 meters for debugging positioning
+    // Create multi-colored faces for easy orientation debugging
+    const testCubeMaterials = [
+      new THREE.MeshBasicMaterial({ color: 0xff0000, transparent: true, opacity: 0.8 }), // Right face - RED
+      new THREE.MeshBasicMaterial({ color: 0x00ff00, transparent: true, opacity: 0.8 }), // Left face - GREEN  
+      new THREE.MeshBasicMaterial({ color: 0x0000ff, transparent: true, opacity: 0.8 }), // Top face - BLUE
+      new THREE.MeshBasicMaterial({ color: 0xffff00, transparent: true, opacity: 0.8 }), // Bottom face - YELLOW
+      new THREE.MeshBasicMaterial({ color: 0xff00ff, transparent: true, opacity: 0.8 }), // Front face - MAGENTA/PINK
+      new THREE.MeshBasicMaterial({ color: 0x00ffff, transparent: true, opacity: 0.8 })  // Back face - CYAN
+    ];
     const testCubeObj = new THREE.Mesh(
       new THREE.BoxGeometry(1.0, 1.0, 1.0), // Exactly 1x1x1 meters
-      new THREE.MeshBasicMaterial({ 
-        color: 0x00ff00, // Green color to distinguish from purple cube
-        transparent: true,
-        opacity: 0.8
-      })
+      testCubeMaterials
     );
     testCubeObj.visible = false; 
     testCubeObj.renderOrder = 9999; 
@@ -664,6 +669,8 @@
          
          console.log('[Place] TEST CUBE positioned:');
          console.log('[Place] - Cube size: 1x1x1 meters');
+         console.log('[Place] - FACE COLORS: RED=Right, GREEN=Left, BLUE=Top, YELLOW=Bottom, MAGENTA=Front, CYAN=Back');
+         console.log('[Place] - The MAGENTA face should be facing you (camera)');
          console.log('[Place] - Target position (reticle):', targetPosition);
          console.log('[Place] - Cube center position:', target.position);
          // Calculate the actual front-bottom center after rotation
