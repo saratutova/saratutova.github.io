@@ -16,7 +16,7 @@
 <body>
   <div id="overlay" style="position:fixed; inset:0; z-index: 20; pointer-events:auto;">
     <div id="hint">Tap Start AR, then Place</div>
-    <div id="build">xr-min build 58</div>
+    <div id="build">xr-min build 59</div>
     <div id="ui">
       <button id="start">Start AR</button>
       <button id="place" disabled>Place</button>
@@ -502,6 +502,25 @@
               }
               
               const clone = entity.object3D.clone(true);
+              
+              // DEBUG: Extract A-Frame GLB information (limited compared to GLTF object)
+              console.log(`[TestCube${cubeNumber}] A-FRAME GLB METADATA ANALYSIS:`);
+              console.log(`[TestCube${cubeNumber}] - A-Frame entity:`, entity);
+              console.log(`[TestCube${cubeNumber}] - Entity components:`, entity.components);
+              console.log(`[TestCube${cubeNumber}] - Object3D:`, entity.object3D);
+              console.log(`[TestCube${cubeNumber}] - Object3D matrix:`, entity.object3D.matrix);
+              console.log(`[TestCube${cubeNumber}] - Object3D scale:`, entity.object3D.scale);
+              console.log(`[TestCube${cubeNumber}] - Object3D position:`, entity.object3D.position);
+              console.log(`[TestCube${cubeNumber}] - Object3D rotation:`, entity.object3D.rotation);
+              
+              // Check for any loader or GLTF data
+              if (entity.components && entity.components['gltf-model']) {
+                const gltfComponent = entity.components['gltf-model'];
+                console.log(`[TestCube${cubeNumber}] - GLTF component:`, gltfComponent);
+                if (gltfComponent.model) {
+                  console.log(`[TestCube${cubeNumber}] - GLTF model data:`, gltfComponent.model);
+                }
+              }
               
               // Create container with pivot at front-bottom center (same approach as airplane)
               const cubeContainer = new THREE.Group();
