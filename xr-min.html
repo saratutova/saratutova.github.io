@@ -16,7 +16,7 @@
 <body>
   <div id="overlay" style="position:fixed; inset:0; z-index: 20; pointer-events:auto;">
     <div id="hint">Tap Start AR, then Place</div>
-    <div id="build">xr-min build 59</div>
+    <div id="build">xr-min build 60</div>
     <div id="ui">
       <button id="start">Start AR</button>
       <button id="place" disabled>Place</button>
@@ -866,12 +866,12 @@
           target = testCubeObj;
         } else if (!forceCube && modelLoaded && model) {
           target = model;
-        } else {
+      } else {
           target = cube;
-        }
+      }
         
         // Apply scaling to airplane model (only to the child mesh, not the container)
-        if (target === model) {
+      if (target === model) {
           const childModel = target.children[0]; // The airplane mesh inside the container
           if (childModel) {
             // Reset child model scale and apply proper scaling
@@ -933,16 +933,16 @@
             } catch(_){ }
             
             // Apply manual scale parameter if provided
-            try {
-              const sp = url.searchParams.get('scale');
-              if (sp != null) {
-                const sf = parseFloat(sp);
+        try {
+          const sp = url.searchParams.get('scale');
+          if (sp != null) {
+            const sf = parseFloat(sp);
                 if (Number.isFinite(sf) && sf > 0) { 
                   childModel.scale.setScalar(sf); 
                   console.log('[Place] applied scale param:', sf, 'new scale:', childModel.scale);
                 }
-              }
-            } catch(_) {}
+          }
+        } catch(_) {}
             
             // Log final scale and size after all scaling
             try {
@@ -983,122 +983,73 @@
         console.log('[Place] Camera fallback position:', targetPosition);
       }
       
-      // Position the airplane using the same pivot-based approach as the cube
+      // Position the airplane using UNIFIED POSITIONING SYSTEM
       if (target === model && modelLoaded) {
-        try {
-          // Get the child model (the actual airplane mesh inside the container)
-          const childModel = target.children[0]; // The airplane mesh
-          
-          if (childModel && originalModelDimensions) {
-            // Calculate where to position the child model so front-bottom center is at container origin
-            // Use the FINAL scale after all scaling operations
-            const currentScale = childModel.scale.x; // Assuming uniform scaling
-            const scaledDimensions = {
-              x: originalModelDimensions.x * currentScale,
-              y: originalModelDimensions.y * currentScale, 
-              z: originalModelDimensions.z * currentScale
-            };
-            
-            // Position child model relative to container origin (front-bottom center)
-            // Move airplane: +Y/2 up (so bottom touches container origin Y), -Z/2 back (so front is at container origin Z)
-            childModel.position.set(
-              0,                           // X center at container center
-              scaledDimensions.y / 2,      // Move up so bottom is at container origin
-              -scaledDimensions.z / 2      // Move back so front is at container origin
-            );
-            
-            // Ensure child model is visible
-            childModel.visible = true;
-            
-            console.log('[Place] AIRPLANE positioned with pivot system:');
-            console.log('[Place] - Original dimensions:', originalModelDimensions);
-            console.log('[Place] - Scaled dimensions:', scaledDimensions);
-            console.log('[Place] - Child model offset from pivot:', childModel.position);
-            console.log('[Place] - Child model visible:', childModel.visible);
-          }
-          
-          // STEP 1: Position the pivot (front-bottom center) exactly at reticle
-          target.position.copy(targetPosition);
-          
-          // STEP 2: Rotate to face camera (rotation happens around the front-bottom center)
-          const cameraDirection = new THREE.Vector3();
-          camera.getWorldDirection(cameraDirection);
-          
-          // We want the airplane's front to face toward the camera
-          const airplaneForwardDirection = cameraDirection.clone().multiplyScalar(-1);
-          airplaneForwardDirection.y = 0; // Keep upright (no tilting)
-          airplaneForwardDirection.normalize();
-          
-          // Calculate rotation from default forward (0,0,1) to desired direction
-          const defaultForward = new THREE.Vector3(0, 0, 1);
-          const rotationQuaternion = new THREE.Quaternion();
-          rotationQuaternion.setFromUnitVectors(defaultForward, airplaneForwardDirection);
-          
-          target.quaternion.copy(rotationQuaternion);
-          
-          console.log('[Place] AIRPLANE positioning:');
-          console.log('[Place] - Target position (reticle):', targetPosition);
-          console.log('[Place] - Pivot position (front-bottom center):', target.position);
-          console.log('[Place] - SIMPLE POSITIONING: Pivot IS the front-bottom center!');
-          console.log('[Place] - Position difference (should be 0,0,0):');
-          console.log('[Place] - X difference:', Math.abs(target.position.x - targetPosition.x).toFixed(6), 'm');
-          console.log('[Place] - Y difference:', Math.abs(target.position.y - targetPosition.y).toFixed(6), 'm');
-          console.log('[Place] - Z difference:', Math.abs(target.position.z - targetPosition.z).toFixed(6), 'm');
-          console.log('[Place] - ROTATION CHECK:');
-          console.log('[Place] - Camera direction:', cameraDirection);
-          console.log('[Place] - Airplane should face direction:', airplaneForwardDirection);
-          console.log('[Place] - Applied rotation quaternion:', rotationQuaternion);
-          console.log('[Place] - Rotation happens around the front-bottom center (no offset issues!)');
-          if (childModel) {
-            console.log('[Place] - Child airplane offset:', childModel.position, 'relative to pivot');
-          }
-          
-        } catch(err) {
-          console.log('[Place] Airplane positioning error:', err);
+        // Calculate rotation to face camera
+        const cameraDirection = new THREE.Vector3();
+        camera.getWorldDirection(cameraDirection);
+        
+        const airplaneForwardDirection = cameraDirection.clone().multiplyScalar(-1);
+        airplaneForwardDirection.y = 0; // Keep upright
+        airplaneForwardDirection.normalize();
+        
+        const defaultForward = new THREE.Vector3(0, 0, 1);
+        const rotationQuaternion = new THREE.Quaternion();
+        rotationQuaternion.setFromUnitVectors(defaultForward, airplaneForwardDirection);
+        
+        // USE UNIFIED POSITIONING SYSTEM
+        const actualBottom = window.realModelBottom || -0.0046; // From logs: airplane bottom
+        const actualFront = window.realModelFront || 0.0649;    // From logs: airplane front
+        
+        const success = positionModel({
+          target: target,
+          targetPosition: targetPosition,
+          rotationQuaternion: rotationQuaternion,
+          modelType: 'airplane',
+          originalDimensions: originalModelDimensions,
+          actualBottom: actualBottom,
+          actualFront: actualFront,
+          expectedHeight: 13.53, // Real airplane height in meters
+          logPrefix: 'Place'
+        });
+        
+        if (!success) {
+          console.log('[Place] UNIFIED AIRPLANE POSITIONING FAILED');
         }
       } else if (target === testCubeObj) {
-         // TEST CUBE: 1x1x1 meter cube positioned exactly as requested
-         // Front-bottom corner at reticle, facing camera, on ground
+         // PROCEDURAL TEST CUBE: Use unified positioning system
          
-         // SUPER SIMPLE: Pivot is already at front-bottom center!
-         
-         // STEP 1: Position the pivot (front-bottom center) exactly at reticle
-         target.position.copy(targetPosition);
-         
-         // STEP 2: Rotate to face camera (rotation happens around the front-bottom center)
+         // Calculate rotation to face camera
          const cameraDirection = new THREE.Vector3();
          camera.getWorldDirection(cameraDirection);
          
-         // We want the cube's front face (positive Z direction) to face toward the camera
-         // So the cube should face opposite to the camera direction
          const cubeForwardDirection = cameraDirection.clone().multiplyScalar(-1);
-         cubeForwardDirection.y = 0; // Keep cube upright (no tilting)
+         cubeForwardDirection.y = 0; // Keep cube upright
          cubeForwardDirection.normalize();
          
-         // Calculate rotation from default forward (0,0,1) to desired direction
          const defaultForward = new THREE.Vector3(0, 0, 1);
          const rotationQuaternion = new THREE.Quaternion();
          rotationQuaternion.setFromUnitVectors(defaultForward, cubeForwardDirection);
          
-         target.quaternion.copy(rotationQuaternion);
+         // USE UNIFIED POSITIONING SYSTEM
+         const success = positionModel({
+           target: target,
+           targetPosition: targetPosition,
+           rotationQuaternion: rotationQuaternion,
+           modelType: 'proceduralCube',
+           originalDimensions: { x: 1.0, y: 1.0, z: 1.0 }, // Known 1x1x1 meter cube
+           actualBottom: 0,    // Procedural cube has bottom at Y=0 (from construction)
+           actualFront: 0.5,   // Procedural cube front face at Z=+0.5 (from construction)
+           expectedHeight: null, // No scaling needed
+           logPrefix: 'PlaceTestCube'
+         });
          
-         console.log('[Place] TEST CUBE positioned:');
-         console.log('[Place] - Cube size: 1x1x1 meters');
-         console.log('[Place] - FACE COLORS: RED=Right, GREEN=Left, BLUE=Top, YELLOW=Bottom, MAGENTA=Front, CYAN=Back');
-         console.log('[Place] - The MAGENTA face should be facing you (camera)');
-         console.log('[Place] - Target position (reticle):', targetPosition);
-         console.log('[Place] - Pivot position (front-bottom center):', target.position);
-         console.log('[Place] - SIMPLE POSITIONING: Pivot IS the front-bottom center!');
-         console.log('[Place] - Position difference (should be 0,0,0):');
-         console.log('[Place] - X difference:', Math.abs(target.position.x - targetPosition.x).toFixed(6), 'm');
-         console.log('[Place] - Y difference:', Math.abs(target.position.y - targetPosition.y).toFixed(6), 'm');
-         console.log('[Place] - Z difference:', Math.abs(target.position.z - targetPosition.z).toFixed(6), 'm');
-         console.log('[Place] - ROTATION CHECK:');
-         console.log('[Place] - Camera direction:', cameraDirection);
-         console.log('[Place] - Cube should face direction:', cubeForwardDirection);
-         console.log('[Place] - Applied rotation quaternion:', rotationQuaternion);
-         console.log('[Place] - Rotation happens around the front-bottom center (no offset issues!)');
-         console.log('[Place] - Child cube offset: (0, +0.5, -0.5) relative to pivot');
+         if (success) {
+           console.log('[PlaceTestCube] FACE COLORS: RED=Right, GREEN=Left, BLUE=Top, YELLOW=Bottom, MAGENTA=Front, CYAN=Back');
+           console.log('[PlaceTestCube] The MAGENTA face should be facing you (camera)');
+         } else {
+           console.log('[PlaceTestCube] UNIFIED POSITIONING FAILED');
+         }
          
        } else {
          // For regular cube or other objects, just place at target position
@@ -1123,6 +1074,108 @@
         console.log('[Place] *** PLACEMENT FAILED ***', error);
         console.log('[Place] Error details:', error.message, error.stack);
         throw error; // Re-throw so the UI handler can catch it
+      }
+    }
+    
+    // UNIFIED MODEL POSITIONING SYSTEM
+    // This function handles positioning for ANY model type consistently
+    function positionModel(config) {
+      try {
+        const {
+          target,              // THREE.Group or THREE.Object3D to position
+          targetPosition,      // THREE.Vector3 where to place the pivot
+          rotationQuaternion,  // THREE.Quaternion for rotation
+          modelType,           // string: 'airplane', 'testCube1', 'testCube2', 'proceduralCube'
+          originalDimensions,  // {x, y, z} original bounding box dimensions
+          actualBottom,        // real Y minimum from vertex analysis
+          actualFront,         // real Z maximum from vertex analysis (front face)
+          expectedHeight,      // expected height for scaling (airplane only)
+          logPrefix           // string: for logging
+        } = config;
+        
+        console.log(`[${logPrefix}] UNIFIED POSITIONING START`);
+        console.log(`[${logPrefix}] - Model type: ${modelType}`);
+        console.log(`[${logPrefix}] - Target position (reticle):`, targetPosition);
+        console.log(`[${logPrefix}] - Original dimensions:`, originalDimensions);
+        
+        // Get the child model (actual mesh inside container)
+        const childModel = target.children[0];
+        if (!childModel) {
+          console.log(`[${logPrefix}] ERROR: No child model found`);
+          return false;
+        }
+        
+        // Special case: procedural cube is already positioned correctly
+        if (modelType === 'proceduralCube') {
+          console.log(`[${logPrefix}] PROCEDURAL CUBE: Already positioned correctly, skipping child positioning`);
+          childModel.visible = true;
+        } else {
+        
+        // STEP 1: SCALING (only for airplane)
+        if (modelType === 'airplane' && expectedHeight) {
+          childModel.scale.setScalar(1); // Reset scale
+          
+          const currentHeight = originalDimensions.y;
+          const scaleFactor = expectedHeight / currentHeight;
+          childModel.scale.setScalar(scaleFactor);
+          
+          console.log(`[${logPrefix}] SCALING applied:`);
+          console.log(`[${logPrefix}] - Original height: ${currentHeight.toFixed(3)}m`);
+          console.log(`[${logPrefix}] - Target height: ${expectedHeight.toFixed(3)}m`);
+          console.log(`[${logPrefix}] - Scale factor: ${scaleFactor.toFixed(6)}`);
+        } else {
+          console.log(`[${logPrefix}] NO SCALING - using original GLB scale`);
+        }
+        
+        // STEP 2: CHILD MODEL POSITIONING (front-bottom center pivot)
+        // Use ACTUAL vertex data instead of calculated center
+        const currentScale = childModel.scale.x; // Assuming uniform scaling
+        const actualBottomScaled = actualBottom * currentScale;
+        const actualFrontScaled = actualFront * currentScale;
+        
+        // Position child so its front-bottom corner is at container origin (0,0,0)
+        childModel.position.set(
+          0,                                    // X center
+          -actualBottomScaled,                  // Move up by actual bottom distance  
+          -actualFrontScaled                    // Move back by actual front distance
+        );
+        
+        childModel.visible = true;
+        
+        console.log(`[${logPrefix}] CHILD MODEL POSITIONING:`);
+        console.log(`[${logPrefix}] - Actual bottom Y: ${actualBottom}`);
+        console.log(`[${logPrefix}] - Actual front Z: ${actualFront}`);
+        console.log(`[${logPrefix}] - Scale factor: ${currentScale}`);
+        console.log(`[${logPrefix}] - Child offset from pivot:`, childModel.position);
+        console.log(`[${logPrefix}] - This places front-bottom corner at container origin`);
+        
+        } // End of non-procedural cube positioning
+        
+        // STEP 3: CONTAINER POSITIONING (simple - pivot IS the front-bottom center)
+        target.position.copy(targetPosition);
+        target.quaternion.copy(rotationQuaternion);
+        target.visible = true;
+        
+        console.log(`[${logPrefix}] CONTAINER POSITIONING:`);
+        console.log(`[${logPrefix}] - Pivot position (front-bottom center):`, target.position);
+        console.log(`[${logPrefix}] - Rotation quaternion:`, rotationQuaternion);
+        console.log(`[${logPrefix}] - SIMPLE: Pivot IS front-bottom center - no offset needed!`);
+        
+        // STEP 4: VERIFICATION
+        console.log(`[${logPrefix}] POSITIONING VERIFICATION:`);
+        console.log(`[${logPrefix}] - Position difference from reticle: (should be 0,0,0)`);
+        console.log(`[${logPrefix}]   X diff: ${Math.abs(target.position.x - targetPosition.x).toFixed(6)}m`);
+        console.log(`[${logPrefix}]   Y diff: ${Math.abs(target.position.y - targetPosition.y).toFixed(6)}m`);
+        console.log(`[${logPrefix}]   Z diff: ${Math.abs(target.position.z - targetPosition.z).toFixed(6)}m`);
+        console.log(`[${logPrefix}] - Object visible: ${target.visible}`);
+        console.log(`[${logPrefix}] - Child visible: ${childModel.visible}`);
+        console.log(`[${logPrefix}] UNIFIED POSITIONING COMPLETE ✓`);
+        
+        return true;
+        
+      } catch (error) {
+        console.log(`[${config.logPrefix}] POSITIONING ERROR:`, error);
+        return false;
       }
     }
     
@@ -1176,52 +1229,28 @@
           rotationQuaternion.setFromUnitVectors(defaultForward, cubeForwardDirection);
         }
         
-        // Get child model (the actual GLB mesh inside the container)
-        const childModel = target.children[0];
-        if (childModel && targetDimensions) {
-          // No scaling needed - GLB cubes should be proper size from Blender
-          console.log(`[PlaceCube${cubeNumber}] Using original GLB scale`);
-          
-          // FIXED: Use actual model bottom instead of calculated center
-          // The logs show: Y range = -1.11e-16 to 1.019m (bottom is essentially 0)
-          const actualBottom = window[`realModelBottom${cubeNumber}`] || 0; // Use actual vertex bottom
-          const actualFront = window[`realModelFront${cubeNumber}`] || targetDimensions.z / 2;
-          
-          // Position child model so ACTUAL front-bottom corner is at container origin
-          childModel.position.set(
-            0,                               // X center
-            -actualBottom,                   // Move up by ACTUAL bottom distance (not calculated)
-            -actualFront                     // Move back by ACTUAL front distance
-          );
-          
-          console.log(`[PlaceCube${cubeNumber}] CORRECTED positioning:`);
-          console.log(`[PlaceCube${cubeNumber}] - Actual bottom Y:`, actualBottom);
-          console.log(`[PlaceCube${cubeNumber}] - Y offset applied:`, -actualBottom);
-          console.log(`[PlaceCube${cubeNumber}] - Expected result: cube bottom ON GROUND`);
-          
-          childModel.visible = true;
-          
-          console.log(`[PlaceCube${cubeNumber}] GLB CUBE positioned with pivot system:`);
-          console.log(`[PlaceCube${cubeNumber}] - GLB dimensions:`, targetDimensions);
-          console.log(`[PlaceCube${cubeNumber}] - Child model offset from pivot:`, childModel.position);
-          console.log(`[PlaceCube${cubeNumber}] - Child model visible:`, childModel.visible);
+        // USE UNIFIED POSITIONING SYSTEM
+        const actualBottom = window[`realModelBottom${cubeNumber}`] || 0;
+        const actualFront = window[`realModelFront${cubeNumber}`] || (targetDimensions ? targetDimensions.z / 2 : 0.5);
+        
+        const success = positionModel({
+          target: target,
+          targetPosition: targetPosition,
+          rotationQuaternion: rotationQuaternion,
+          modelType: `testCube${cubeNumber}`,
+          originalDimensions: targetDimensions,
+          actualBottom: actualBottom,
+          actualFront: actualFront,
+          expectedHeight: null, // No scaling for test cubes
+          logPrefix: `PlaceCube${cubeNumber}`
+        });
+        
+        if (!success) {
+          console.log(`[PlaceCube${cubeNumber}] UNIFIED POSITIONING FAILED`);
+          return;
         }
         
-        // STEP 1: Position the pivot (front-bottom center) exactly at reticle
-        target.position.copy(targetPosition);
-        
-        // STEP 2: Rotate to face camera (rotation happens around the front-bottom center)
-        target.quaternion.copy(rotationQuaternion);
-        
-        // Show the cube
-        target.visible = true;
-        
-        console.log(`[PlaceCube${cubeNumber}] TEST CUBE ${cubeNumber} positioned:`);
-        console.log(`[PlaceCube${cubeNumber}] - Target position (reticle):`, targetPosition);
-        console.log(`[PlaceCube${cubeNumber}] - Pivot position (front-bottom center):`, target.position);
-        console.log(`[PlaceCube${cubeNumber}] - SIMPLE POSITIONING: Pivot IS the front-bottom center!`);
-        console.log(`[PlaceCube${cubeNumber}] - Applied rotation quaternion:`, rotationQuaternion);
-        console.log(`[PlaceCube${cubeNumber}] - GLB file: models/TESTBOX-${cubeNumber === 1 ? 'frontfacepivot' : 'centerpivot'}.glb`);
+        console.log(`[PlaceCube${cubeNumber}] GLB file: models/TESTBOX-${cubeNumber === 1 ? 'frontfacepivot' : 'centerpivot'}.glb`);
         
       } catch(err) {
         console.log(`[PlaceCube${cubeNumber}] Error:`, err);
