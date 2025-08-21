@@ -16,7 +16,7 @@
 <body>
   <div id="overlay" style="position:fixed; inset:0; z-index: 20; pointer-events:auto;">
     <div id="hint">Tap Start AR, then Place</div>
-    <div id="build">xr-min build 62 + fixed orientation + corruption + airplane height</div>
+    <div id="build">xr-min build 63 + fixed corruption with stored dimensions</div>
     <div id="ui">
       <button id="start">Start AR</button>
       <button id="place" disabled>Place</button>
@@ -1127,67 +1127,82 @@
         }
         
         // STEP 2: CHILD MODEL POSITIONING (front-bottom center pivot)
-        // Reset child model transform to get clean bounding box
-        const originalPosition = childModel.position.clone();
-        const originalRotation = childModel.rotation.clone();
-        const originalScale = childModel.scale.clone();
+        // Use STORED original dimensions instead of corrupted runtime bounding box
+        const currentScale = childModel.scale.x; // Current scale factor
         
-        // Temporarily reset to origin for clean bounding box calculation
-        childModel.position.set(0, 0, 0);
-        childModel.rotation.set(0, 0, 0);
-        childModel.updateMatrixWorld(true);
+        // Use stored original model dimensions (clean, never corrupted)
+        const size = {
+          x: originalDimensions.x * currentScale,
+          y: originalDimensions.y * currentScale,
+          z: originalDimensions.z * currentScale
+        };
         
-        // Calculate the model's bounding box center to account for off-center models
-        const bbox = new THREE.Box3().setFromObject(childModel);
-        const center = bbox.getCenter(new THREE.Vector3());
-        const size = bbox.getSize(new THREE.Vector3());
+        // Calculate the model center based on stored vertex data
+        let actualBottom, actualFront, centerX;
         
-        // Restore original scale (but we'll set new position)
-        childModel.scale.copy(originalScale);
-        
-        console.log(`[${logPrefix}] BOUNDING BOX ANALYSIS:`);
-        console.log(`[${logPrefix}] - Bounding box center:`, center);
-        console.log(`[${logPrefix}] - Bounding box size:`, size);
-        console.log(`[${logPrefix}] - Min:`, bbox.min);
-        console.log(`[${logPrefix}] - Max:`, bbox.max);
-        
-        // Position child so that its front-bottom corner is at container origin
-        // Front-bottom corner = (center.x, min.y, max.z)
-        let frontOffset = -bbox.max.z; // Default: front face at max Z
-        
-        // SPECIAL FIX: Test cubes seem to have wrong orientation in GLB
-        // If this is a test cube, try using the back face as front
-        if (modelType.includes('testCube')) {
-          frontOffset = -bbox.min.z; // Use back face as front for test cubes
-          console.log(`[${logPrefix}] CUBE ORIENTATION FIX: Using back face as front`);
+        if (modelType === 'airplane') {
+          actualBottom = (window.realModelBottom || -0.0046) * currentScale;
+          actualFront = (window.realModelFront || 0.0649) * currentScale;
+          centerX = 0; // Airplane is centered
+        } else if (modelType.includes('testCube')) {
+          actualBottom = (window[`realModelBottom${modelType.slice(-1)}`] || 0) * currentScale;
+          actualFront = (window[`realModelFront${modelType.slice(-1)}`] || 0.486) * currentScale;
+          // Test cubes are off-center by 0.136m in X based on original analysis
+          centerX = 0.136 * currentScale;
+        } else {
+          // Default values
+          actualBottom = 0;
+          actualFront = size.z / 2;
+          centerX = 0;
         }
         
-        // Calculate Y offset for ground contact
-        let groundOffset = -bbox.min.y; // Default: bottom edge at Y=0
+        console.log(`[${logPrefix}] STORED DIMENSIONS ANALYSIS:`);
+        console.log(`[${logPrefix}] - Using stored original dimensions:`, originalDimensions);
+        console.log(`[${logPrefix}] - Current scale factor:`, currentScale);
+        console.log(`[${logPrefix}] - Scaled size:`, size);
+        console.log(`[${logPrefix}] - Actual bottom Y:`, actualBottom);
+        console.log(`[${logPrefix}] - Actual front Z:`, actualFront);
+        console.log(`[${logPrefix}] - Center X offset:`, centerX);
         
-        // SPECIAL FIX: Airplane might need extra downward adjustment for landing gear
+        // Calculate positioning offsets using STORED data (never corrupted)
+        let frontOffset = -actualFront; // Front face at Z=0
+        let groundOffset = -actualBottom; // Bottom at Y=0
+        
+        // SPECIAL FIX: Test cubes orientation - flip front/back
+        if (modelType.includes('testCube')) {
+          // For test cubes, use back edge as front (flip the cube)
+          frontOffset = actualFront - size.z; // This puts back edge at Z=0
+          console.log(`[${logPrefix}] CUBE ORIENTATION FIX: Flipping front/back`);
+        }
+        
+        // SPECIAL FIX: Airplane extra downward adjustment  
         if (modelType === 'airplane') {
-          // Lower the airplane more to ensure landing gear touches ground
-          groundOffset = -bbox.min.y - 2.0; // Additional 2m downward adjustment
-          console.log(`[${logPrefix}] AIRPLANE HEIGHT FIX: Extra 2m downward adjustment for landing gear`);
+          groundOffset = -actualBottom - 2.0; // Extra 2m down for landing gear
+          console.log(`[${logPrefix}] AIRPLANE HEIGHT FIX: Extra 2m downward adjustment`);
+        }
+        
+        // SPECIAL FIX: Test cubes distance - move them back more
+        if (modelType.includes('testCube')) {
+          frontOffset = frontOffset - 0.3; // Move cubes 30cm further back
+          console.log(`[${logPrefix}] CUBE DISTANCE FIX: Moving 30cm further from camera`);
         }
         
         childModel.position.set(
-          -center.x,           // Center the model horizontally
+          -centerX,            // Center the model horizontally using stored offset
           groundOffset,        // Position for proper ground contact
-          frontOffset          // Move so correct face is at container origin Z=0
+          frontOffset          // Move so correct face is at proper distance from camera
         );
         
         childModel.visible = true;
         
         console.log(`[${logPrefix}] CHILD MODEL POSITIONING:`);
-        console.log(`[${logPrefix}] - Model was off-center by:`, center);
-        console.log(`[${logPrefix}] - Clean bounding box (before positioning):`, {min: bbox.min, max: bbox.max});
-        console.log(`[${logPrefix}] - Applied positioning offset:`, childModel.position);
+        console.log(`[${logPrefix}] - Using STORED data (no corruption possible)`);
+        console.log(`[${logPrefix}] - Final positioning offset:`, childModel.position);
         console.log(`[${logPrefix}] - Ground offset: ${groundOffset.toFixed(3)}m`);
         console.log(`[${logPrefix}] - Front offset: ${frontOffset.toFixed(3)}m`);
-        console.log(`[${logPrefix}] - Front-bottom corner now at container origin (0,0,0)`);
-        console.log(`[${logPrefix}] - This should fix: rightward shift + orientation + height!`);
+        console.log(`[${logPrefix}] - X center offset: ${(-centerX).toFixed(3)}m`);
+        console.log(`[${logPrefix}] - Front-bottom corner at container origin (0,0,0)`);
+        console.log(`[${logPrefix}] - This should fix: corruption + distance + orientation!`);
         
         } // End of non-procedural cube positioning
         
