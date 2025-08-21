@@ -16,7 +16,7 @@
 <body>
   <div id="overlay" style="position:fixed; inset:0; z-index: 20; pointer-events:auto;">
     <div id="hint">Tap Start AR, then Place. Add ?testCube=1 for 1x1x1m test cube.</div>
-    <div id="build">xr-min build 53 + pivot-based positioning (much simpler)</div>
+    <div id="build">xr-min build 54 + unified pivot system (cube + airplane)</div>
     <div id="ui">
       <button id="start">Start AR</button>
       <button id="place" disabled>Place</button>
@@ -186,11 +186,22 @@
                     }
                   });
                 }
-                 model.visible = false; model.renderOrder = 9999;
-                 model.traverse((child)=>{ if (child.material){ child.material.depthTest=true; child.material.depthWrite=true; child.material.needsUpdate=true; } });
-                 // Don't apply scaling here - let the place() function handle it
-                 // This prevents double-scaling and ensures proper centering
-                 scene.add(model);
+                 // Create container with pivot at front-bottom center (same as cube approach)
+                 const modelContainer = new THREE.Group();
+                 
+                 // Store original model directly in container first 
+                 const originalModel = clone;
+                 originalModel.visible = false; 
+                 originalModel.renderOrder = 9999;
+                 originalModel.traverse((child)=>{ if (child.material){ child.material.depthTest=true; child.material.depthWrite=true; child.material.needsUpdate=true; } });
+                 
+                 // Add model to container (we'll position it relative to front-bottom center later)
+                 modelContainer.add(originalModel);
+                 modelContainer.visible = false;
+                 scene.add(modelContainer);
+                 
+                 // Update global reference to point to container
+                 model = modelContainer;
                  modelLoaded = true;
                  
                  // Store the original model dimensions and a clean copy
@@ -274,12 +285,22 @@
               }
             });
           }
-          model.visible = false;
-          model.renderOrder = 9999;
-          model.traverse((child)=>{ if (child.material){ child.material.depthTest=true; child.material.depthWrite=true; child.material.needsUpdate=true; } });
-          // Don't apply scaling here - let the place() function handle it
-          // This prevents double-scaling and ensures proper centering
-          scene.add(model);
+          // Create container with pivot at front-bottom center (same as cube approach)
+          const modelContainer = new THREE.Group();
+          
+          // Store original model in container
+          const originalModel = model;
+          originalModel.visible = false;
+          originalModel.renderOrder = 9999;
+          originalModel.traverse((child)=>{ if (child.material){ child.material.depthTest=true; child.material.depthWrite=true; child.material.needsUpdate=true; } });
+          
+          // Add model to container (we'll position it relative to front-bottom center later)
+          modelContainer.add(originalModel);
+          modelContainer.visible = false;
+          scene.add(modelContainer);
+          
+          // Update global reference to point to container
+          model = modelContainer;
           modelLoaded = true;
           
           // Store the original model dimensions and a clean copy
@@ -322,8 +343,9 @@
         exitBtn.disabled=true; 
         reticle.visible=false; 
         cube.visible=false; 
-        // Hide model when session ends
+        // Hide ALL objects when session ends
         if (model) model.visible = false;
+        if (testCubeObj) testCubeObj.visible = false;
         console.log('[XR] Session ended - all objects hidden'); 
       });
 
@@ -477,174 +499,75 @@
         console.log('[Place] Camera fallback position:', targetPosition);
       }
       
-      // Position the object so its FRONT-BOTTOM corner is at the target position
+      // Position the airplane using the same pivot-based approach as the cube
       if (target === model && modelLoaded) {
-          try {
-                      // Use ORIGINAL stored dimensions to avoid corruption from repeated scaling/positioning
-          let min, max, size;
+        try {
+          // Get the child model (the actual airplane mesh inside the container)
+          const childModel = target.children[0]; // The airplane mesh
           
-          if (originalModelDimensions) {
-            // Use the original clean dimensions and apply current scale
-            const currentScale = target.scale.x; // Assuming uniform scaling
-            const halfWidth = (originalModelDimensions.x * currentScale) / 2;
-            const halfDepth = (originalModelDimensions.z * currentScale) / 2;
-            const height = originalModelDimensions.y * currentScale;
+          if (childModel && originalModelDimensions) {
+            // Calculate where to position the child model so front-bottom center is at container origin
+            const currentScale = childModel.scale.x; // Assuming uniform scaling
+            const scaledDimensions = {
+              x: originalModelDimensions.x * currentScale,
+              y: originalModelDimensions.y * currentScale, 
+              z: originalModelDimensions.z * currentScale
+            };
             
-            // Create consistent bounding box based on original dimensions
-            min = { 
-              x: -halfWidth, 
-              y: 0, // Assume bottom at Y=0 for original model
-              z: -halfDepth 
-            };
-            max = { 
-              x: halfWidth, 
-              y: height, 
-              z: halfDepth 
-            };
-            size = { 
-              x: originalModelDimensions.x * currentScale, 
-              y: height, 
-              z: originalModelDimensions.z * currentScale 
-            };
-          } else {
-            // Fallback to current bounding box calculation
-            const bbox = new THREE.Box3().setFromObject(target);
-            size = new THREE.Vector3();
-            bbox.getSize(size);
-            min = bbox.min;
-            max = bbox.max;
+            // Position child model relative to container origin (front-bottom center)
+            // Move airplane: +Y/2 up (so bottom touches container origin Y), -Z/2 back (so front is at container origin Z)
+            childModel.position.set(
+              0,                           // X center at container center
+              scaledDimensions.y / 2,      // Move up so bottom is at container origin
+              -scaledDimensions.z / 2      // Move back so front is at container origin
+            );
+            
+            console.log('[Place] AIRPLANE positioned with pivot system:');
+            console.log('[Place] - Original dimensions:', originalModelDimensions);
+            console.log('[Place] - Scaled dimensions:', scaledDimensions);
+            console.log('[Place] - Child model offset from pivot:', childModel.position);
           }
-            
-            console.log('[Place] POSITIONING details:');
-            console.log('[Place] - Object height:', size.y.toFixed(3), 'm');
-            console.log('[Place] - Object width:', size.x.toFixed(3), 'm');
-            console.log('[Place] - Object depth:', size.z.toFixed(3), 'm');
-            console.log('[Place] - Target position (where to place):', targetPosition);
-            console.log('[Place] - Object bounding box at origin - min:', min, 'max:', max);
-            
-            // Now we have the clean bounding box from object at origin
-            
-            // Position the object so its front-bottom corner is exactly at the target position
-            // We need to offset the object position so that:
-            // - min.y (bottom) ends up at targetPosition.y
-            // - max.z (front) ends up at targetPosition.z
-            
-            // PRECISE POSITIONING: Front tip AT the reticle position
-            target.position.x = targetPosition.x; // X at target
-            target.position.z = targetPosition.z - max.z; // Move airplane back so FRONT TIP is at target Z
-            
-            // Y-positioning: Make sure the absolute bottom of the airplane touches the surface
-            // If min.y = 0, then bottom is at object origin level
-            // If min.y < 0, then bottom is BELOW object origin
-            // We want: target.position.y + min.y = targetPosition.y (surface level)
-            // Therefore: target.position.y = targetPosition.y - min.y
-            // FORCE airplane to touch ground - push it down more aggressively
-            // The model's actual landing gear is probably higher than bounding box suggests
-            const surfaceOffset = -3.0; // Push 3 METERS BELOW surface to force contact
-            target.position.y = targetPosition.y - min.y + surfaceOffset;
-            
-            console.log('[Place] Y-POSITIONING DETAILED DEBUG:');
-            console.log('[Place] - Surface level (target Y):', targetPosition.y.toFixed(6));
-            console.log('[Place] - Object min.y (bottom offset from origin):', min.y.toFixed(6));
-            console.log('[Place] - Object origin placed at Y:', target.position.y.toFixed(6));
-            console.log('[Place] - Calculated bottom Y (origin + min.y):', (target.position.y + min.y).toFixed(6));
-            console.log('[Place] - Bottom vs surface difference:', Math.abs((target.position.y + min.y) - targetPosition.y).toFixed(6), 'm');
-            console.log('[Place] - Applied surface offset:', surfaceOffset, 'm (NEGATIVE = pushing 3 METERS below surface)');
-            console.log('[Place] - Bottom should equal surface:', Math.abs((target.position.y + min.y) - targetPosition.y - surfaceOffset) < 0.001 ? 'CORRECT' : 'WRONG');
-            console.log('[Place] - FORCING airplane 3 METERS below surface to ensure visual contact');
-            
-            console.log('[Place] Y POSITIONING DEBUG (FIXED):');
-            console.log('[Place] - Target Y (where bottom should be):', targetPosition.y.toFixed(6));
-            console.log('[Place] - Object min.y (bottom offset):', min.y.toFixed(6));
-            console.log('[Place] - Object origin Y set to:', target.position.y.toFixed(6));
-            console.log('[Place] - Expected bottom Y:', (target.position.y + min.y).toFixed(6), '(should equal target Y)');
-            console.log('[Place] - Using ORIGINAL dimensions, not corrupted bounding box');
-            
-            // SIMPLIFIED ROTATION: Keep airplane in default orientation for now
-            // Just use the reticle's rotation (surface-aligned)
-            target.quaternion.copy(targetQuaternion);
-            
-            // Log camera and rotation info for debugging
-            const cameraDirection = new THREE.Vector3();
-            camera.getWorldDirection(cameraDirection);
-            
-            console.log('[Place] ROTATION:');
-            console.log('[Place] - Camera direction:', cameraDirection);
-            console.log('[Place] - Using reticle rotation (surface-aligned)');
-            console.log('[Place] - Applied rotation:', target.quaternion);
-            
-            console.log('[Place] CALCULATED POSITIONING:');
-            console.log('[Place] - Target position:', targetPosition);
-            console.log('[Place] - Object bottom offset:', min.y.toFixed(3), 'm');
-            console.log('[Place] - Object depth (front to back):', max.z.toFixed(3), 'm');
-            console.log('[Place] - Final object position:', target.position);
-            console.log('[Place] - Bottom should now be at target Y:', targetPosition.y.toFixed(3), 'm');
-            console.log('[Place] - FRONT TIP should now be at target Z:', targetPosition.z.toFixed(3), 'm');
-            
-            console.log('[Place] - Final pivot position (front-bottom corner):', target.position);
-            
-            // Verify final positioning - the front-bottom corner should now be at reticle
-            console.log('[Place] - Final object position:', target.position);
-            console.log('[Place] - Reticle position (target):', reticle.position);
-            
-            // Calculate where the airplane parts actually are relative to reticle
-            const airplaneBottom = {
-                x: target.position.x,
-                y: target.position.y + min.y,     // Bottom of the airplane
-                z: target.position.z
-            };
-            const airplaneFrontTip = {
-                x: target.position.x,
-                y: target.position.y,
-                z: target.position.z + max.z      // Front tip/nose (should be AT reticle now)
-            };
-            const airplaneBack = {
-                x: target.position.x,
-                y: target.position.y,
-                z: target.position.z + min.z      // Back edge (assuming -Z is back)
-            };
-            
-            console.log('[Place] - AIRPLANE POSITIONING CHECK:');
-            console.log('[Place] - Reticle (target):', targetPosition);
-            console.log('[Place] - Airplane CENTER:', target.position);
-            console.log('[Place] - Airplane BOTTOM:', airplaneBottom);
-            console.log('[Place] - Airplane FRONT TIP:', airplaneFrontTip);
-            console.log('[Place] - Airplane BACK (-Z):', airplaneBack);
-            console.log('[Place] - Distance from reticle to airplane center:', camera.position.distanceTo(target.position).toFixed(3), 'm');
-            console.log('[Place] - Distance from reticle to airplane front tip:', camera.position.distanceTo(new THREE.Vector3(airplaneFrontTip.x, airplaneFrontTip.y, airplaneFrontTip.z)).toFixed(3), 'm');
-            
-            // CRITICAL: Verify front tip is exactly at reticle position
-            console.log('[Place] - FRONT TIP VERIFICATION:');
-            console.log('[Place] - Front tip Z position:', airplaneFrontTip.z.toFixed(6));
-            console.log('[Place] - Target reticle Z position:', targetPosition.z.toFixed(6));
-            console.log('[Place] - Z difference (should be 0):', Math.abs(airplaneFrontTip.z - targetPosition.z).toFixed(6), 'm');
-            console.log('[Place] - Front tip matches reticle:', Math.abs(airplaneFrontTip.z - targetPosition.z) < 0.001 ? 'CORRECT' : 'WRONG');
-            
-            // Add visual reference - how high above "floor level" are we?
-            console.log('[Place] FLOOR REFERENCE CHECK:');
-            console.log('[Place] - Camera Y position:', camera.position.y.toFixed(3), 'm (camera height above world origin)');
-            console.log('[Place] - Surface Y position:', targetPosition.y.toFixed(3), 'm (detected surface height)');
-            console.log('[Place] - Airplane bottom Y:', (target.position.y + min.y).toFixed(3), 'm (FORCED 3m below surface)');
-            console.log('[Place] - Actual distance below surface:', Math.abs((target.position.y + min.y) - targetPosition.y).toFixed(3), 'm');
-            console.log('[Place] - Height difference: camera vs surface:', (camera.position.y - targetPosition.y).toFixed(3), 'm');
-            console.log('[Place] - Height difference: camera vs airplane bottom:', (camera.position.y - (target.position.y + min.y)).toFixed(3), 'm');
           
-                       // Scale verification
-            console.log('[Place] SCALE VERIFICATION:');
-            console.log('[Place] - Your baby bed is ~0.85m tall');
-            console.log('[Place] - This airplane model is', size.y.toFixed(2), 'm tall');
-            console.log('[Place] - The airplane should be', (size.y/0.85).toFixed(1), 'times taller than your baby bed');
-            console.log('[Place] - This is REAL 1:1 SCALE - airplane at real world size');
-           
-                       // Distance verification
-            console.log('[Place] DISTANCE VERIFICATION:');
-            console.log('[Place] - Reticle position (world coordinates):', reticle.position);
-            console.log('[Place] - Camera position (world coordinates):', camera.position);
-            const distanceToReticle = camera.position.distanceTo(reticle.position);
-            console.log('[Place] - Distance from camera to reticle:', distanceToReticle.toFixed(3), 'm');
-            console.log('[Place] - This is a REAL distance in meters from the AR system');
-        } catch(_) {}
-       } else if (target === testCubeObj) {
+          // STEP 1: Position the pivot (front-bottom center) exactly at reticle
+          target.position.copy(targetPosition);
+          
+          // STEP 2: Rotate to face camera (rotation happens around the front-bottom center)
+          const cameraDirection = new THREE.Vector3();
+          camera.getWorldDirection(cameraDirection);
+          
+          // We want the airplane's front to face toward the camera
+          const airplaneForwardDirection = cameraDirection.clone().multiplyScalar(-1);
+          airplaneForwardDirection.y = 0; // Keep upright (no tilting)
+          airplaneForwardDirection.normalize();
+          
+          // Calculate rotation from default forward (0,0,1) to desired direction
+          const defaultForward = new THREE.Vector3(0, 0, 1);
+          const rotationQuaternion = new THREE.Quaternion();
+          rotationQuaternion.setFromUnitVectors(defaultForward, airplaneForwardDirection);
+          
+          target.quaternion.copy(rotationQuaternion);
+          
+          console.log('[Place] AIRPLANE positioning:');
+          console.log('[Place] - Target position (reticle):', targetPosition);
+          console.log('[Place] - Pivot position (front-bottom center):', target.position);
+          console.log('[Place] - SIMPLE POSITIONING: Pivot IS the front-bottom center!');
+          console.log('[Place] - Position difference (should be 0,0,0):');
+          console.log('[Place] - X difference:', Math.abs(target.position.x - targetPosition.x).toFixed(6), 'm');
+          console.log('[Place] - Y difference:', Math.abs(target.position.y - targetPosition.y).toFixed(6), 'm');
+          console.log('[Place] - Z difference:', Math.abs(target.position.z - targetPosition.z).toFixed(6), 'm');
+          console.log('[Place] - ROTATION CHECK:');
+          console.log('[Place] - Camera direction:', cameraDirection);
+          console.log('[Place] - Airplane should face direction:', airplaneForwardDirection);
+          console.log('[Place] - Applied rotation quaternion:', rotationQuaternion);
+          console.log('[Place] - Rotation happens around the front-bottom center (no offset issues!)');
+          if (childModel) {
+            console.log('[Place] - Child airplane offset:', childModel.position, 'relative to pivot');
+          }
+          
+        } catch(err) {
+          console.log('[Place] Airplane positioning error:', err);
+        }
+      } else if (target === testCubeObj) {
          // TEST CUBE: 1x1x1 meter cube positioned exactly as requested
          // Front-bottom corner at reticle, facing camera, on ground
          
