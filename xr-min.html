@@ -16,7 +16,7 @@
 <body>
   <div id="overlay" style="position:fixed; inset:0; z-index: 20; pointer-events:auto;">
     <div id="hint">Tap Start AR, then Place. Add ?testCube=1 for 1x1x1m test cube.</div>
-    <div id="build">xr-min build 54 + unified pivot system (cube + airplane)</div>
+    <div id="build">xr-min build 55 + fixed airplane visibility (container approach)</div>
     <div id="ui">
       <button id="start">Start AR</button>
       <button id="place" disabled>Place</button>
@@ -378,106 +378,98 @@
           target = cube;
         }
         
-        // Apply scaling every time to ensure proper sizing
+        // Apply scaling to airplane model (only to the child mesh, not the container)
         if (target === model) {
-          // CRITICAL: Reset to clean state before any calculations
-          if (originalModelClone) {
-            // Replace current model with clean copy to prevent corruption
-            scene.remove(target);
-            model = originalModelClone.clone(true);
-            model.visible = false;
-            model.renderOrder = 9999;
-            model.traverse((child)=>{ if (child.material){ child.material.depthTest=true; child.material.depthWrite=true; child.material.needsUpdate=true; } });
-            scene.add(model);
-            target = model;
-            console.log('[Place] restored clean model from original clone');
-          }
-          
-          // Reset scale and apply proper scaling
-          target.scale.setScalar(1);
-          console.log('[Place] reset scale to 1');
-          
-          // Apply base scale (force to MASSIVE real-world size)
-          try {
-            if (originalModelDimensions) {
-              // FORCE to real airplane scale - much bigger than before
-              const expectedHeight = 13.53; // Real airplane height in meters
-              const realScaleFactor = expectedHeight / originalModelDimensions.y;
-              
-              // Apply correct 1:1 real-world scaling - no extra multiplier needed
-              const finalScaleFactor = realScaleFactor * defaultArScale;
-              
-              if (Number.isFinite(finalScaleFactor) && finalScaleFactor > 0) {
-                target.scale.setScalar(finalScaleFactor);
-                console.log('[Place] SCALING - original height:', originalModelDimensions.y.toFixed(3), 'm');
-                console.log('[Place] Real scale factor:', realScaleFactor.toFixed(6), '(to 13.53m real size)');
-                console.log('[Place] AR scale factor:', defaultArScale, '(1.0 = real world size)');
-                console.log('[Place] Final scale factor:', finalScaleFactor.toFixed(6));
-                console.log('[Place] Final airplane height:', (13.53 * defaultArScale).toFixed(3), 'm (REAL SIZE!)');
-              }
-            } else {
-              console.log('[Place] No original dimensions available, using default scale');
-              target.scale.setScalar(defaultArScale);
-            }
-          } catch(_) {
-            console.log('[Place] Failed to apply scaling');
-          }
-          
-          try { 
-            if (unitScale && unitScale !== 1) { 
-              target.scale.multiplyScalar(unitScale); 
-              console.log('[Place] applied unitScale:', unitScale, 'new scale:', target.scale);
-            } else {
-              console.log('[Place] no unitScale applied, unitScale =', unitScale);
-            }
-          } catch(_){ }
-          
-          try {
-            if (Number.isFinite(targetMaxDimMeters)) {
-              const bboxTmp = new THREE.Box3().setFromObject(target);
-              const sz = new THREE.Vector3(); 
-              bboxTmp.getSize(sz);
-              const maxDimNow = Math.max(sz.x, sz.y, sz.z) || 1;
-              const f = targetMaxDimMeters / maxDimNow;
-              if (Number.isFinite(f) && f > 0) { 
-                target.scale.multiplyScalar(f); 
-                console.log('[Place] applied targetMaxDim scale:', f.toFixed(6), 'target size:', targetMaxDimMeters, 'm, current max dim:', maxDimNow.toFixed(3), 'm');
-                console.log('[Place] scale after targetMaxDim:', target.scale);
-              }
-            } else {
-              console.log('[Place] no targetMaxDimMeters applied, value =', targetMaxDimMeters);
-            }
-          } catch(_){ }
-          
-          // Apply manual scale parameter if provided
-          try {
-            const sp = url.searchParams.get('scale');
-            if (sp != null) {
-              const sf = parseFloat(sp);
-              if (Number.isFinite(sf) && sf > 0) { 
-                target.scale.setScalar(sf); 
-                console.log('[Place] applied scale param:', sf, 'new scale:', target.scale);
-              }
-            }
-          } catch(_) {}
-          
-          // Log final scale and size after all scaling
-          try {
-            const bboxFinal = new THREE.Box3().setFromObject(target);
-            const sizeFinal = new THREE.Vector3();
-            bboxFinal.getSize(sizeFinal);
-            console.log('[Place] FINAL scale after all scaling:', target.scale);
-            console.log('[Place] FINAL model size (after scaling):', sizeFinal);
-            console.log('[Place] FINAL model dimensions: X=', sizeFinal.x.toFixed(3), 'm, Y=', sizeFinal.y.toFixed(3), 'm, Z=', sizeFinal.z.toFixed(3), 'm');
+          const childModel = target.children[0]; // The airplane mesh inside the container
+          if (childModel) {
+            // Reset child model scale and apply proper scaling
+            childModel.scale.setScalar(1);
+            console.log('[Place] reset child model scale to 1');
             
-            // Real-world scale verification
-            console.log('[Place] REAL-WORLD SCALE verification:');
-            console.log('[Place] - Your airplane is now', sizeFinal.x.toFixed(2), 'm wide,', sizeFinal.y.toFixed(2), 'm tall,', sizeFinal.z.toFixed(2), 'm deep');
-            console.log('[Place] - This is REAL WORLD SIZE - same as the actual airplane!');
-            console.log('[Place] - A person is ~1.7m tall - this airplane is', (sizeFinal.y/1.7).toFixed(1), 'times taller than a person');
-            console.log('[Place] - You should be able to walk under the wings and around the fuselage!');
-            console.log('[Place] - The cockpit should be about 3-4 meters above ground level');
-          } catch(_) {}
+            // Apply base scale (force to real-world size)
+            try {
+              if (originalModelDimensions) {
+                // Real airplane scale
+                const expectedHeight = 13.53; // Real airplane height in meters
+                const realScaleFactor = expectedHeight / originalModelDimensions.y;
+                
+                // Apply correct 1:1 real-world scaling
+                const finalScaleFactor = realScaleFactor * defaultArScale;
+                
+                if (Number.isFinite(finalScaleFactor) && finalScaleFactor > 0) {
+                  childModel.scale.setScalar(finalScaleFactor);
+                  console.log('[Place] SCALING - original height:', originalModelDimensions.y.toFixed(3), 'm');
+                  console.log('[Place] Real scale factor:', realScaleFactor.toFixed(6), '(to 13.53m real size)');
+                  console.log('[Place] AR scale factor:', defaultArScale, '(1.0 = real world size)');
+                  console.log('[Place] Final scale factor:', finalScaleFactor.toFixed(6));
+                  console.log('[Place] Final airplane height:', (13.53 * defaultArScale).toFixed(3), 'm (REAL SIZE!)');
+                }
+              } else {
+                console.log('[Place] No original dimensions available, using default scale');
+                childModel.scale.setScalar(defaultArScale);
+              }
+            } catch(_) {
+              console.log('[Place] Failed to apply scaling');
+            }
+            
+            // Apply unit scale
+            try { 
+              if (unitScale && unitScale !== 1) { 
+                childModel.scale.multiplyScalar(unitScale); 
+                console.log('[Place] applied unitScale:', unitScale, 'new scale:', childModel.scale);
+              } else {
+                console.log('[Place] no unitScale applied, unitScale =', unitScale);
+              }
+            } catch(_){ }
+            
+            // Apply target max dimension scaling
+            try {
+              if (Number.isFinite(targetMaxDimMeters)) {
+                const bboxTmp = new THREE.Box3().setFromObject(childModel);
+                const sz = new THREE.Vector3(); 
+                bboxTmp.getSize(sz);
+                const maxDimNow = Math.max(sz.x, sz.y, sz.z) || 1;
+                const f = targetMaxDimMeters / maxDimNow;
+                if (Number.isFinite(f) && f > 0) { 
+                  childModel.scale.multiplyScalar(f); 
+                  console.log('[Place] applied targetMaxDim scale:', f.toFixed(6), 'target size:', targetMaxDimMeters, 'm, current max dim:', maxDimNow.toFixed(3), 'm');
+                  console.log('[Place] scale after targetMaxDim:', childModel.scale);
+                }
+              } else {
+                console.log('[Place] no targetMaxDimMeters applied, value =', targetMaxDimMeters);
+              }
+            } catch(_){ }
+            
+            // Apply manual scale parameter if provided
+            try {
+              const sp = url.searchParams.get('scale');
+              if (sp != null) {
+                const sf = parseFloat(sp);
+                if (Number.isFinite(sf) && sf > 0) { 
+                  childModel.scale.setScalar(sf); 
+                  console.log('[Place] applied scale param:', sf, 'new scale:', childModel.scale);
+                }
+              }
+            } catch(_) {}
+            
+            // Log final scale and size after all scaling
+            try {
+              const bboxFinal = new THREE.Box3().setFromObject(childModel);
+              const sizeFinal = new THREE.Vector3();
+              bboxFinal.getSize(sizeFinal);
+              console.log('[Place] FINAL scale after all scaling:', childModel.scale);
+              console.log('[Place] FINAL model size (after scaling):', sizeFinal);
+              console.log('[Place] FINAL model dimensions: X=', sizeFinal.x.toFixed(3), 'm, Y=', sizeFinal.y.toFixed(3), 'm, Z=', sizeFinal.z.toFixed(3), 'm');
+              
+              // Real-world scale verification
+              console.log('[Place] REAL-WORLD SCALE verification:');
+              console.log('[Place] - Your airplane is now', sizeFinal.x.toFixed(2), 'm wide,', sizeFinal.y.toFixed(2), 'm tall,', sizeFinal.z.toFixed(2), 'm deep');
+              console.log('[Place] - This is REAL WORLD SIZE - same as the actual airplane!');
+              console.log('[Place] - A person is ~1.7m tall - this airplane is', (sizeFinal.y/1.7).toFixed(1), 'times taller than a person');
+              console.log('[Place] - You should be able to walk under the wings and around the fuselage!');
+              console.log('[Place] - The cockpit should be about 3-4 meters above ground level');
+            } catch(_) {}
+          }
         }
       
       // Check if we have a valid reticle position (not at origin)
@@ -507,6 +499,7 @@
           
           if (childModel && originalModelDimensions) {
             // Calculate where to position the child model so front-bottom center is at container origin
+            // Use the FINAL scale after all scaling operations
             const currentScale = childModel.scale.x; // Assuming uniform scaling
             const scaledDimensions = {
               x: originalModelDimensions.x * currentScale,
@@ -522,10 +515,14 @@
               -scaledDimensions.z / 2      // Move back so front is at container origin
             );
             
+            // Ensure child model is visible
+            childModel.visible = true;
+            
             console.log('[Place] AIRPLANE positioned with pivot system:');
             console.log('[Place] - Original dimensions:', originalModelDimensions);
             console.log('[Place] - Scaled dimensions:', scaledDimensions);
             console.log('[Place] - Child model offset from pivot:', childModel.position);
+            console.log('[Place] - Child model visible:', childModel.visible);
           }
           
           // STEP 1: Position the pivot (front-bottom center) exactly at reticle
