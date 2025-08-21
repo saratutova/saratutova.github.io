@@ -15,8 +15,8 @@
 </head>
 <body>
   <div id="overlay" style="position:fixed; inset:0; z-index: 20; pointer-events:auto;">
-    <div id="hint">Tap Start AR, then Place. Add ?testCube=1 for 1x1x1m test cube.</div>
-    <div id="build">xr-min build 56 + test cube buttons + GLB metadata analysis</div>
+    <div id="hint">Tap Start AR, then Place</div>
+    <div id="build">xr-min build 57</div>
     <div id="ui">
       <button id="start">Start AR</button>
       <button id="place" disabled>Place</button>
@@ -465,10 +465,205 @@
       }
     }
     
+    // A-Frame fallback loader for test cubes
+    async function tryAframeFallbackLoaderForCube(cubeNumber, glbUrl) {
+      try {
+        async function loadScript(url) {
+          return new Promise((resolve, reject) => {
+            const s = document.createElement('script');
+            s.src = url; s.async = true; s.crossOrigin = 'anonymous';
+            s.onload = resolve; s.onerror = reject; 
+            document.head.appendChild(s);
+          });
+        }
+        
+        if (!window.AFRAME) {
+          await loadScript('https://aframe.io/releases/1.4.0/aframe.min.js');
+          console.log(`[TestCube${cubeNumber}] A-Frame loaded for fallback`);
+        }
+        
+        const afScene = document.createElement('a-scene');
+        afScene.setAttribute('embedded', '');
+        afScene.style.cssText = 'position:fixed;left:-9999px;top:-9999px;width:1px;height:1px;opacity:0;pointer-events:none;';
+        const entity = document.createElement('a-entity');
+        entity.setAttribute('id', `fallbackTestCube${cubeNumber}Entity`);
+        entity.setAttribute('gltf-model', glbUrl);
+        entity.setAttribute('visible', 'false');
+        afScene.appendChild(entity);
+        document.body.appendChild(afScene);
+        
+        return await new Promise((resolve) => {
+          entity.addEventListener('model-loaded', async () => {
+            try {
+              if (!entity.object3D || !entity.object3D.children.length) {
+                console.log(`[TestCube${cubeNumber}] A-Frame fallback: no object3D children`);
+                resolve(false);
+                return;
+              }
+              
+              const clone = entity.object3D.clone(true);
+              
+              // Create container with pivot at front-bottom center (same approach as airplane)
+              const cubeContainer = new THREE.Group();
+              
+              clone.visible = false;
+              clone.renderOrder = 9999;
+              clone.traverse((child) => { 
+                if (child.material) { 
+                  child.material.depthTest = true; 
+                  child.material.depthWrite = true; 
+                  child.material.needsUpdate = true; 
+                } 
+              });
+              
+              cubeContainer.add(clone);
+              cubeContainer.visible = false;
+              scene.add(cubeContainer);
+              
+              // Store dimensions and analyze geometry
+              try {
+                const bb = new THREE.Box3().setFromObject(cubeContainer);
+                const size = new THREE.Vector3();
+                bb.getSize(size);
+                
+                console.log(`[TestCube${cubeNumber}] GLB loaded via A-Frame fallback`, glbUrl, 'final size m=', size);
+                console.log(`[TestCube${cubeNumber}] A-FRAME BOUNDING BOX ANALYSIS:`);
+                console.log(`[TestCube${cubeNumber}] - Bounding box min:`, bb.min);
+                console.log(`[TestCube${cubeNumber}] - Bounding box max:`, bb.max);
+                console.log(`[TestCube${cubeNumber}] - Bounding box center:`, bb.getCenter(new THREE.Vector3()));
+                
+                // Analyze actual vertex data
+                let minY = Infinity, maxY = -Infinity, minZ = Infinity, maxZ = -Infinity, vertexCount = 0;
+                
+                cubeContainer.traverse((child) => {
+                  if (child.isMesh && child.geometry) {
+                    const geometry = child.geometry;
+                    const positionAttribute = geometry.attributes.position;
+                    
+                    if (positionAttribute) {
+                      child.updateMatrixWorld();
+                      const vertex = new THREE.Vector3();
+                      
+                      for (let i = 0; i < positionAttribute.count; i++) {
+                        vertex.fromBufferAttribute(positionAttribute, i);
+                        vertex.applyMatrix4(child.matrixWorld);
+                        
+                        minY = Math.min(minY, vertex.y);
+                        maxY = Math.max(maxY, vertex.y);
+                        minZ = Math.min(minZ, vertex.z);
+                        maxZ = Math.max(maxZ, vertex.z);
+                        vertexCount++;
+                      }
+                    }
+                  }
+                });
+                
+                console.log(`[TestCube${cubeNumber}] A-FRAME VERTEX ANALYSIS:`);
+                console.log(`[TestCube${cubeNumber}] - Total vertices analyzed:`, vertexCount);
+                console.log(`[TestCube${cubeNumber}] - Actual Y range (height):`, minY, 'to', maxY, '=', maxY - minY, 'm');
+                console.log(`[TestCube${cubeNumber}] - Actual Z range (depth):`, minZ, 'to', maxZ, '=', maxZ - minZ, 'm');
+                console.log(`[TestCube${cubeNumber}] - BOTTOM difference: bbox.min.y =`, bb.min.y, 'vs actual minY =', minY, 'diff =', bb.min.y - minY);
+                
+                // Store references
+                if (cubeNumber === 1) {
+                  testCube1Model = cubeContainer;
+                  testCube1Loaded = true;
+                  testCube1Dimensions = { x: size.x, y: size.y, z: size.z };
+                } else if (cubeNumber === 2) {
+                  testCube2Model = cubeContainer;
+                  testCube2Loaded = true;
+                  testCube2Dimensions = { x: size.x, y: size.y, z: size.z };
+                }
+                
+                console.log(`[TestCube${cubeNumber}] A-Frame fallback successful`);
+                
+              } catch(err) {
+                console.log(`[TestCube${cubeNumber}] A-Frame fallback dimension analysis failed:`, err);
+              }
+              
+              resolve(true);
+            } catch (err) { 
+              console.log(`[TestCube${cubeNumber}] A-Frame fallback failed after load`, err); 
+              resolve(false); 
+            }
+          }, { once: true });
+          
+          entity.addEventListener('model-error', (e) => { 
+            console.log(`[TestCube${cubeNumber}] A-Frame fallback model-error`, e && e.detail); 
+            resolve(false); 
+          }, { once: true });
+          
+          // Safety timeout
+          setTimeout(() => { 
+            console.log(`[TestCube${cubeNumber}] A-Frame fallback timeout`); 
+            resolve(false); 
+          }, 10000);
+        });
+      } catch (err) {
+        console.log(`[TestCube${cubeNumber}] A-Frame fallback init failed`, err);
+        return false;
+      }
+    }
+    
     // Load test cube GLB files
     async function loadTestCube(cubeNumber, glbPath) {
       try {
-        const loader = new THREE.GLTFLoader();
+        // Try GLTFLoader first, then A-Frame fallback
+        let loader = null;
+        
+        // Try to initialize GLTFLoader (same logic as main model)
+        const esmUrls = [
+          'https://cdn.jsdelivr.net/npm/three@0.150.1/examples/jsm/loaders/GLTFLoader.js',
+          'https://unpkg.com/three@0.150.1/examples/jsm/loaders/GLTFLoader.js'
+        ];
+        const umdUrls = [
+          'https://cdn.jsdelivr.net/npm/three@0.150.1/examples/js/loaders/GLTFLoader.js',
+          'https://unpkg.com/three@0.150.1/examples/js/loaders/GLTFLoader.js',
+          'https://cdnjs.cloudflare.com/ajax/libs/three.js/r150/examples/js/loaders/GLTFLoader.min.js'
+        ];
+        
+        async function tryEsm(url) {
+          try {
+            const module = await import(url);
+            return module.GLTFLoader;
+          } catch(_) { return null; }
+        }
+        
+        async function tryUmd(url) {
+          try {
+            await new Promise((resolve, reject) => {
+              const s = document.createElement('script');
+              s.src = url; s.async = true; s.crossOrigin = 'anonymous';
+              s.onload = resolve; s.onerror = reject;
+              document.head.appendChild(s);
+            });
+            return true;
+          } catch(_) { return false; }
+        }
+        
+        // Try ESM first
+        for (const url of esmUrls) {
+          const GLTFLoaderCtor = await tryEsm(url);
+          if (GLTFLoaderCtor) { loader = new GLTFLoaderCtor(); break; }
+        }
+        
+        // Try UMD if ESM failed
+        if (!loader) {
+          if (!THREE.GLTFLoader) {
+            for (const url of umdUrls) {
+              const ok = await tryUmd(url);
+              if (ok && THREE.GLTFLoader) break;
+            }
+          }
+          if (THREE.GLTFLoader) loader = new THREE.GLTFLoader();
+        }
+        
+        if (!loader) {
+          console.log(`[TestCube${cubeNumber}] GLTFLoader failed, trying A-Frame fallback`);
+          await tryAframeFallbackLoaderForCube(cubeNumber, glbPath);
+          return;
+        }
+        
         loader.load(glbPath, (gltf) => {
           let cubeModel = gltf.scene || (gltf.scenes && gltf.scenes[0]);
           if (!cubeModel) { 
@@ -570,11 +765,15 @@
             console.log(`[TestCube${cubeNumber}] GLB loaded but dimension analysis failed:`, err);
           }
           
-        }, undefined, (err) => {
-          console.log(`[TestCube${cubeNumber}] Load error:`, String(err));
+        }, undefined, async (err) => {
+          console.log(`[TestCube${cubeNumber}] GLTFLoader error:`, String(err));
+          console.log(`[TestCube${cubeNumber}] Trying A-Frame fallback`);
+          try { await tryAframeFallbackLoaderForCube(cubeNumber, glbPath); } catch(_) {}
         });
       } catch (e) {
         console.log(`[TestCube${cubeNumber}] Loader init failed:`, e && (e.message || String(e)));
+        console.log(`[TestCube${cubeNumber}] Trying A-Frame fallback`);
+        try { await tryAframeFallbackLoaderForCube(cubeNumber, glbPath); } catch(_) {}
       }
     }
     
