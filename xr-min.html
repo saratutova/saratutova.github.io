@@ -564,15 +564,19 @@
                 console.log(`[TestCube${cubeNumber}] - Actual Z range (depth):`, minZ, 'to', maxZ, '=', maxZ - minZ, 'm');
                 console.log(`[TestCube${cubeNumber}] - BOTTOM difference: bbox.min.y =`, bb.min.y, 'vs actual minY =', minY, 'diff =', bb.min.y - minY);
                 
-                // Store references
+                // Store references and real geometry data
                 if (cubeNumber === 1) {
                   testCube1Model = cubeContainer;
                   testCube1Loaded = true;
                   testCube1Dimensions = { x: size.x, y: size.y, z: size.z };
+                  window.realModelBottom1 = minY;
+                  window.realModelFront1 = maxZ;
                 } else if (cubeNumber === 2) {
                   testCube2Model = cubeContainer;
                   testCube2Loaded = true;
                   testCube2Dimensions = { x: size.x, y: size.y, z: size.z };
+                  window.realModelBottom2 = minY;
+                  window.realModelFront2 = maxZ;
                 }
                 
                 console.log(`[TestCube${cubeNumber}] A-Frame fallback successful`);
@@ -750,15 +754,19 @@
             console.log(`[TestCube${cubeNumber}] - Actual Z range (depth):`, minZ, 'to', maxZ, '=', maxZ - minZ, 'm');
             console.log(`[TestCube${cubeNumber}] - BOTTOM difference: bbox.min.y =`, bb.min.y, 'vs actual minY =', minY, 'diff =', bb.min.y - minY);
             
-            // Store references
+            // Store references and real geometry data
             if (cubeNumber === 1) {
               testCube1Model = cubeContainer;
               testCube1Loaded = true;
               testCube1Dimensions = { x: size.x, y: size.y, z: size.z };
+              window.realModelBottom1 = minY;
+              window.realModelFront1 = maxZ;
             } else if (cubeNumber === 2) {
               testCube2Model = cubeContainer;
               testCube2Loaded = true;
               testCube2Dimensions = { x: size.x, y: size.y, z: size.z };
+              window.realModelBottom2 = minY;
+              window.realModelFront2 = maxZ;
             }
             
           } catch(err) {
@@ -1121,11 +1129,9 @@
           return;
         }
         
-        // Hide other objects
+        // Hide airplane and procedural objects (but keep both test cubes visible)
         if (model) model.visible = false;
         if (testCubeObj) testCubeObj.visible = false;
-        if (testCube1Model && cubeNumber !== 1) testCube1Model.visible = false;
-        if (testCube2Model && cubeNumber !== 2) testCube2Model.visible = false;
         cube.visible = false;
         
         // Position at reticle or camera fallback
@@ -1157,13 +1163,22 @@
           // No scaling needed - GLB cubes should be proper size from Blender
           console.log(`[PlaceCube${cubeNumber}] Using original GLB scale`);
           
-          // Position child model so front-bottom center is at container origin
-          // This logic should match your Blender export exactly
+          // FIXED: Use actual model bottom instead of calculated center
+          // The logs show: Y range = -1.11e-16 to 1.019m (bottom is essentially 0)
+          const actualBottom = window[`realModelBottom${cubeNumber}`] || 0; // Use actual vertex bottom
+          const actualFront = window[`realModelFront${cubeNumber}`] || targetDimensions.z / 2;
+          
+          // Position child model so ACTUAL front-bottom corner is at container origin
           childModel.position.set(
             0,                               // X center
-            targetDimensions.y / 2,          // Move up so bottom touches container origin
-            -targetDimensions.z / 2          // Move back so front is at container origin
+            -actualBottom,                   // Move up by ACTUAL bottom distance (not calculated)
+            -actualFront                     // Move back by ACTUAL front distance
           );
+          
+          console.log(`[PlaceCube${cubeNumber}] CORRECTED positioning:`);
+          console.log(`[PlaceCube${cubeNumber}] - Actual bottom Y:`, actualBottom);
+          console.log(`[PlaceCube${cubeNumber}] - Y offset applied:`, -actualBottom);
+          console.log(`[PlaceCube${cubeNumber}] - Expected result: cube bottom ON GROUND`);
           
           childModel.visible = true;
           
