@@ -16,7 +16,7 @@
 <body>
   <div id="overlay" style="position:fixed; inset:0; z-index: 20; pointer-events:auto;">
     <div id="hint">Tap Start AR, then Place</div>
-    <div id="build">xr-min build 60</div>
+    <div id="build">xr-min build 61 + fixed cube centering</div>
     <div id="ui">
       <button id="start">Start AR</button>
       <button id="place" disabled>Place</button>
@@ -1128,30 +1128,39 @@
         }
         
         // STEP 2: CHILD MODEL POSITIONING (front-bottom center pivot)
-        // Use ACTUAL vertex data instead of calculated center
-        const currentScale = childModel.scale.x; // Assuming uniform scaling
-        const actualBottomScaled = actualBottom * currentScale;
-        const actualFrontScaled = actualFront * currentScale;
+        // Calculate the model's bounding box center to account for off-center models
+        const bbox = new THREE.Box3().setFromObject(childModel);
+        const center = bbox.getCenter(new THREE.Vector3());
+        const size = bbox.getSize(new THREE.Vector3());
         
-        // Position child so its front-bottom corner is at container origin (0,0,0)
+        console.log(`[${logPrefix}] BOUNDING BOX ANALYSIS:`);
+        console.log(`[${logPrefix}] - Bounding box center:`, center);
+        console.log(`[${logPrefix}] - Bounding box size:`, size);
+        console.log(`[${logPrefix}] - Min:`, bbox.min);
+        console.log(`[${logPrefix}] - Max:`, bbox.max);
+        
+        // Position child so that its front-bottom corner is at container origin
+        // Front-bottom corner = (center.x, min.y, max.z)
         childModel.position.set(
-          0,                                    // X center
-          -actualBottomScaled,                  // Move up by actual bottom distance  
-          -actualFrontScaled                    // Move back by actual front distance
+          -center.x,           // Center the model horizontally
+          -bbox.min.y,         // Move up so bottom edge is at container origin Y=0
+          -bbox.max.z          // Move back so front edge is at container origin Z=0
         );
         
         childModel.visible = true;
         
         console.log(`[${logPrefix}] CHILD MODEL POSITIONING:`);
-        console.log(`[${logPrefix}] - Actual bottom Y: ${actualBottom}`);
-        console.log(`[${logPrefix}] - Actual front Z: ${actualFront}`);
-        console.log(`[${logPrefix}] - Scale factor: ${currentScale}`);
-        console.log(`[${logPrefix}] - Child offset from pivot:`, childModel.position);
-        console.log(`[${logPrefix}] - This places front-bottom corner at container origin`);
+        console.log(`[${logPrefix}] - Model was off-center by:`, center);
+        console.log(`[${logPrefix}] - Applied offset to center model:`, childModel.position);
+        console.log(`[${logPrefix}] - Front-bottom corner now at container origin (0,0,0)`);
+        console.log(`[${logPrefix}] - This should eliminate the rightward shift!`);
         
         } // End of non-procedural cube positioning
         
-        // STEP 3: CONTAINER POSITIONING (simple - pivot IS the front-bottom center)
+        // STEP 3: CONTAINER POSITIONING (SIMPLIFIED PIVOT-BASED APPROACH)
+        // The key insight: container origin IS the front-bottom center after proper child positioning
+        
+        // Simply position and rotate the container - the child positioning makes the pivot correct
         target.position.copy(targetPosition);
         target.quaternion.copy(rotationQuaternion);
         target.visible = true;
