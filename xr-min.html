@@ -16,7 +16,7 @@
 <body>
   <div id="overlay" style="position:fixed; inset:0; z-index: 20; pointer-events:auto;">
     <div id="hint">Tap Start AR, then Place. Add ?testCube=1 for 1x1x1m test cube.</div>
-    <div id="build">xr-min build 51 + multi-colored test cube (debug orientation)</div>
+    <div id="build">xr-min build 53 + pivot-based positioning (much simpler)</div>
     <div id="ui">
       <button id="start">Start AR</button>
       <button id="place" disabled>Place</button>
@@ -121,14 +121,22 @@
       new THREE.MeshBasicMaterial({ color: 0xff00ff, transparent: true, opacity: 0.8 }), // Front face - MAGENTA/PINK
       new THREE.MeshBasicMaterial({ color: 0x00ffff, transparent: true, opacity: 0.8 })  // Back face - CYAN
     ];
-    const testCubeObj = new THREE.Mesh(
+    const testCubeMesh = new THREE.Mesh(
       new THREE.BoxGeometry(1.0, 1.0, 1.0), // Exactly 1x1x1 meters
       testCubeMaterials
     );
-    testCubeObj.visible = false; 
-    testCubeObj.renderOrder = 9999; 
-    testCubeObj.material.depthTest = true; 
-    testCubeObj.material.depthWrite = true;
+    testCubeMesh.renderOrder = 9999; 
+    testCubeMesh.material.depthTest = true; 
+    testCubeMesh.material.depthWrite = true;
+    
+    // Create container with pivot at front-bottom center
+    // When pivot is at front-bottom center, the cube mesh needs to be offset
+    const testCubeObj = new THREE.Group();
+    // Offset cube so that its front-bottom center is at the group's origin (0,0,0)
+    // Cube center needs to move: +0.5 up (Y), -0.5 back (Z), 0 sideways (X)
+    testCubeMesh.position.set(0, 0.5, -0.5); // Move cube center relative to front-bottom pivot
+    testCubeObj.add(testCubeMesh);
+    testCubeObj.visible = false;
     scene.add(testCubeObj);
 
     // Load GLB model by default
@@ -640,17 +648,12 @@
          // TEST CUBE: 1x1x1 meter cube positioned exactly as requested
          // Front-bottom corner at reticle, facing camera, on ground
          
-         // Calculate cube dimensions (we know it's 1x1x1, but let's be explicit)
-         const cubeSize = 1.0; // 1 meter
-         const halfSize = cubeSize / 2; // 0.5 meters
+         // SUPER SIMPLE: Pivot is already at front-bottom center!
          
-         // Position so the CENTER of the FRONT-BOTTOM EDGE is exactly at the reticle
-         // This means the middle of the front face should be at the reticle position
-         target.position.x = targetPosition.x; // Cube center X = reticle X (centers the front face)
-         target.position.y = targetPosition.y + halfSize; // Move up by 0.5m so bottom touches surface  
-         target.position.z = targetPosition.z - halfSize; // Move BACK by 0.5m so front face is at reticle Z
+         // STEP 1: Position the pivot (front-bottom center) exactly at reticle
+         target.position.copy(targetPosition);
          
-         // Calculate rotation so the front face faces the camera at spawn time
+         // STEP 2: Rotate to face camera (rotation happens around the front-bottom center)
          const cameraDirection = new THREE.Vector3();
          camera.getWorldDirection(cameraDirection);
          
@@ -672,28 +675,18 @@
          console.log('[Place] - FACE COLORS: RED=Right, GREEN=Left, BLUE=Top, YELLOW=Bottom, MAGENTA=Front, CYAN=Back');
          console.log('[Place] - The MAGENTA face should be facing you (camera)');
          console.log('[Place] - Target position (reticle):', targetPosition);
-         console.log('[Place] - Cube center position:', target.position);
-         // Calculate the actual front-bottom center after rotation
-         const localFrontCenter = new THREE.Vector3(0, -halfSize, halfSize); // Local front-bottom center
-         const worldFrontCenter = localFrontCenter.clone().applyQuaternion(target.quaternion).add(target.position);
-         
-         const frontBottomCenter = {
-           x: worldFrontCenter.x,
-           y: worldFrontCenter.y, 
-           z: worldFrontCenter.z
-         };
-         
-         console.log('[Place] - Front-bottom CENTER at:', frontBottomCenter);
-         console.log('[Place] - Should match reticle position:', targetPosition);
-         console.log('[Place] - X difference (should be 0):', Math.abs(frontBottomCenter.x - targetPosition.x).toFixed(6), 'm');
-         console.log('[Place] - Y difference (should be 0):', Math.abs(frontBottomCenter.y - targetPosition.y).toFixed(6), 'm');
-         console.log('[Place] - Z difference (should be 0):', Math.abs(frontBottomCenter.z - targetPosition.z).toFixed(6), 'm');
+         console.log('[Place] - Pivot position (front-bottom center):', target.position);
+         console.log('[Place] - SIMPLE POSITIONING: Pivot IS the front-bottom center!');
+         console.log('[Place] - Position difference (should be 0,0,0):');
+         console.log('[Place] - X difference:', Math.abs(target.position.x - targetPosition.x).toFixed(6), 'm');
+         console.log('[Place] - Y difference:', Math.abs(target.position.y - targetPosition.y).toFixed(6), 'm');
+         console.log('[Place] - Z difference:', Math.abs(target.position.z - targetPosition.z).toFixed(6), 'm');
          console.log('[Place] - ROTATION CHECK:');
          console.log('[Place] - Camera direction:', cameraDirection);
          console.log('[Place] - Cube should face direction:', cubeForwardDirection);
          console.log('[Place] - Applied rotation quaternion:', rotationQuaternion);
-         console.log('[Place] - POSITIONING CHECK: Front face should now face camera');
-         console.log('[Place] - Front-bottom center (after rotation):', frontBottomCenter);
+         console.log('[Place] - Rotation happens around the front-bottom center (no offset issues!)');
+         console.log('[Place] - Child cube offset: (0, +0.5, -0.5) relative to pivot');
          
        } else {
          // For regular cube or other objects, just place at target position
