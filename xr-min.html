@@ -19,7 +19,7 @@
 <body>
   <div id="overlay" style="position:fixed; inset:0; z-index: 20; pointer-events:auto;">
     <div id="hint">Tap Start AR, then Place</div>
-    <div id="build">xr-min build 81 + fixed airplane orientation flip</div>
+    <div id="build">xr-min build 82 + debug airplane orientation</div>
     <div id="ui">
       <button id="start">Start AR</button>
       <button id="place" disabled>Place</button>
@@ -1164,11 +1164,16 @@
         
         // SPECIAL FIX: Airplane positioning  
         if (modelType === 'airplane') {
-          // For CENTERED airplane model: the model is FLIPPED - actualFront is actually the back!
-          // So to put the REAL front edge at circle, we need to move FORWARD by actualFront
-          frontOffset = actualFront; // Move center forward so REAL front edge is at circle
+          // DEBUG: Let's try both orientations to figure out which is correct
+          // Model Z range: -0.263 (back) to +0.282 (front) = 0.545m total depth
+          console.log(`[${logPrefix}] DEBUG: actualFront=${actualFront}, actualBack=${window.realModelBack || 'unknown'}`);
+          console.log(`[${logPrefix}] DEBUG: If actualFront (+0.282) is nose: put nose at circle by moving center BACK -0.282m`);
+          console.log(`[${logPrefix}] DEBUG: If actualFront (+0.282) is tail: put nose at circle by moving center FORWARD +0.282m`);
+          
+          // Let's try the opposite direction - if you're inside, the orientation is wrong
+          frontOffset = -actualFront; // Try moving center BACK to put +Z edge at circle
           groundOffset = -actualBottom - 2.0; // Extra 2m down for landing gear
-          console.log(`[${logPrefix}] CENTERED Airplane: moved center forward so REAL front edge at circle, 2m down`);
+          console.log(`[${logPrefix}] CENTERED Airplane: TESTING - moved center BACK so +Z edge at circle, 2m down`);
         }
         
         childModel.position.set(
@@ -1252,7 +1257,7 @@
             boundingBox.position.set(
               0,                          // Centered horizontally 
               boxHeight/2 + airplaneActualBottom * boxCurrentScale,  // Bottom edge at airplane bottom
-              airplaneActualFront         // Move forward so REAL front edge is at circle (unscaled)
+              -airplaneActualFront        // TESTING: Move back to match child positioning
             );
             
             boundingBox.userData = { isBoundingBox: true };
