@@ -16,7 +16,7 @@
 <body>
   <div id="overlay" style="position:fixed; inset:0; z-index: 20; pointer-events:auto;">
     <div id="hint">Tap Start AR, then Place</div>
-    <div id="build">xr-min build 71 + fixed bounding box error handling</div>
+    <div id="build">xr-min build 72 + added detailed bounding box debug logging</div>
     <div id="ui">
       <button id="start">Start AR</button>
       <button id="place" disabled>Place</button>
@@ -1190,44 +1190,61 @@
         // Add transparent bounding box for airplane positioning verification
         if (modelType === 'airplane') {
           try {
+            console.log(`[${logPrefix}] Starting bounding box creation...`);
+            console.log(`[${logPrefix}] Original dimensions:`, originalDimensions);
+            console.log(`[${logPrefix}] Current scale:`, currentScale);
+            
             // Remove any existing bounding box
             const existingBox = target.children.find(child => child.userData && child.userData.isBoundingBox);
             if (existingBox) {
               target.remove(existingBox);
+              console.log(`[${logPrefix}] Removed existing bounding box`);
             }
             
-            // Create wireframe bounding box using stored dimensions
-            const boxGeometry = new THREE.BoxGeometry(
-              originalDimensions.x * currentScale, 
-              originalDimensions.y * currentScale, 
-              originalDimensions.z * currentScale
-            );
+            // Create simple box geometry first
+            console.log(`[${logPrefix}] Creating BoxGeometry...`);
+            const boxWidth = originalDimensions.x * currentScale;
+            const boxHeight = originalDimensions.y * currentScale; 
+            const boxDepth = originalDimensions.z * currentScale;
+            console.log(`[${logPrefix}] Box dimensions: ${boxWidth.toFixed(2)} × ${boxHeight.toFixed(2)} × ${boxDepth.toFixed(2)}`);
+            
+            const boxGeometry = new THREE.BoxGeometry(boxWidth, boxHeight, boxDepth);
+            console.log(`[${logPrefix}] BoxGeometry created successfully`);
+            
+            // Create wireframe
+            console.log(`[${logPrefix}] Creating WireframeGeometry...`);
             const wireframe = new THREE.WireframeGeometry(boxGeometry);
+            console.log(`[${logPrefix}] WireframeGeometry created successfully`);
+            
+            // Create material
+            console.log(`[${logPrefix}] Creating material...`);
             const boxMaterial = new THREE.LineBasicMaterial({ 
               color: 0xff0000,  // Red wireframe
               transparent: true, 
               opacity: 0.6
             });
+            console.log(`[${logPrefix}] Material created successfully`);
+            
+            // Create line segments
+            console.log(`[${logPrefix}] Creating LineSegments...`);
             const boundingBox = new THREE.LineSegments(wireframe, boxMaterial);
+            console.log(`[${logPrefix}] LineSegments created successfully`);
             
-            // Position the bounding box to match the airplane's actual bounds
-            // The box should be centered on the airplane's geometric center, accounting for child positioning
-            const airplaneActualBottom = (window.realModelBottom || -0.0046) * currentScale;
-            const airplaneActualFront = (window.realModelFront || 0.0649) * currentScale;
-            
-            const actualCenter = {
-              x: 0, // Airplane is centered horizontally
-              y: originalDimensions.y * currentScale / 2 - airplaneActualBottom,  // Half height above ground level
-              z: originalDimensions.z * currentScale / 2 - airplaneActualFront    // Half depth from front edge
-            };
-            boundingBox.position.set(actualCenter.x, actualCenter.y, actualCenter.z);
+            // Simple positioning - just center it on the airplane
+            console.log(`[${logPrefix}] Positioning bounding box...`);
+            boundingBox.position.set(0, boxHeight/2, 0); // Center it above ground
             boundingBox.userData = { isBoundingBox: true };
             boundingBox.renderOrder = 10000; // Render on top
+            console.log(`[${logPrefix}] Bounding box positioned at:`, boundingBox.position);
             
+            // Add to target
+            console.log(`[${logPrefix}] Adding to target...`);
             target.add(boundingBox);
-            console.log(`[${logPrefix}] Added bounding box: ${(originalDimensions.x * currentScale).toFixed(2)}×${(originalDimensions.y * currentScale).toFixed(2)}×${(originalDimensions.z * currentScale).toFixed(2)}m`);
+            console.log(`[${logPrefix}] ✅ BOUNDING BOX ADDED SUCCESSFULLY: ${boxWidth.toFixed(2)}×${boxHeight.toFixed(2)}×${boxDepth.toFixed(2)}m`);
+            
           } catch (boundingBoxError) {
-            console.log(`[${logPrefix}] Bounding box creation failed:`, boundingBoxError);
+            console.log(`[${logPrefix}] ❌ Bounding box creation failed at step:`, boundingBoxError);
+            console.log(`[${logPrefix}] Error details:`, boundingBoxError.message, boundingBoxError.stack);
           }
         }
         
