@@ -7,7 +7,10 @@
   <style>
     html, body { margin: 0; height: 100%; overflow: hidden; background: #fff; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; }
     #ui { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); z-index: 10; display: flex; gap: 8px; }
-    button { padding: 10px 14px; border: 0; border-radius: 999px; background: #111; color: #fff; font-weight: 600; }
+    button { padding: 10px 14px; border: 0; border-radius: 999px; background: #111; color: #fff; font-weight: 600; transition: background-color 0.3s ease; }
+    button:disabled { background: #333; color: #666; }
+    #place.ready { background: #00cc44 !important; color: white !important; } /* Green when surface found */
+    #exit { background: #cc3300; }
     #hint { position: fixed; top: 16px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.6); color: #fff; padding: 8px 12px; border-radius: 8px; z-index: 10; }
     #build { position: fixed; top: 16px; right: 16px; background: rgba(0,0,0,0.7); color: #fff; padding: 6px 10px; border-radius: 999px; font-size: 12px; z-index: 10; }
     canvas { background: transparent !important; }
@@ -16,7 +19,7 @@
 <body>
   <div id="overlay" style="position:fixed; inset:0; z-index: 20; pointer-events:auto;">
     <div id="hint">Tap Start AR, then Place</div>
-    <div id="build">xr-min build 72 + added detailed bounding box debug logging</div>
+    <div id="build">xr-min build 73 + green Place button when surface ready</div>
     <div id="ui">
       <button id="start">Start AR</button>
       <button id="place" disabled>Place</button>
@@ -760,6 +763,11 @@
         reticle.visible=false; 
         cube.visible=false; 
         
+        // Reset Place button color
+        if (placeBtn) {
+          placeBtn.classList.remove('ready');
+        }
+        
         // Clean up hit source on session end
         if (hitSource) {
           try {
@@ -1346,10 +1354,21 @@
           reticle.position.set(hitPose.transform.position.x, hitPose.transform.position.y, hitPose.transform.position.z);
           reticle.quaternion.set(hitPose.transform.orientation.x, hitPose.transform.orientation.y, hitPose.transform.orientation.z, hitPose.transform.orientation.w);
           hint.textContent = 'Surface found - tap Place';
+          
+          // Make Place button green when surface is detected
+          if (placeBtn && !placeBtn.disabled) {
+            placeBtn.classList.add('ready');
+          }
+          
           if (autoPlace && !autoPlaced) { try { place(); autoPlaced = true; console.log('[AutoPlace] via reticle'); } catch(_){} }
         } else {
           reticle.visible = false;
           hint.textContent = 'Move to find surface';
+          
+          // Remove green color when no surface detected
+          if (placeBtn) {
+            placeBtn.classList.remove('ready');
+          }
         }
       }
       renderer.render(scene, camera);
