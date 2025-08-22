@@ -19,7 +19,7 @@
 <body>
   <div id="overlay" style="position:fixed; inset:0; z-index: 20; pointer-events:auto;">
     <div id="hint">Tap Start AR, then Place</div>
-    <div id="build">xr-min build 80 + fixed centered model positioning scale</div>
+    <div id="build">xr-min build 81 + fixed airplane orientation flip</div>
     <div id="ui">
       <button id="start">Start AR</button>
       <button id="place" disabled>Place</button>
@@ -1164,12 +1164,11 @@
         
         // SPECIAL FIX: Airplane positioning  
         if (modelType === 'airplane') {
-          // For CENTERED airplane model: move BACK so front edge touches circle
-          // actualFront is the distance from center to front edge (positive: +0.282m)
-          // To put front edge at circle (Z=0), we need to move the center BACK by that distance
-          frontOffset = -actualFront; // Move center back so front edge is at circle
+          // For CENTERED airplane model: the model is FLIPPED - actualFront is actually the back!
+          // So to put the REAL front edge at circle, we need to move FORWARD by actualFront
+          frontOffset = actualFront; // Move center forward so REAL front edge is at circle
           groundOffset = -actualBottom - 2.0; // Extra 2m down for landing gear
-          console.log(`[${logPrefix}] CENTERED Airplane: moved center back so front edge at circle, 2m down`);
+          console.log(`[${logPrefix}] CENTERED Airplane: moved center forward so REAL front edge at circle, 2m down`);
         }
         
         childModel.position.set(
@@ -1253,7 +1252,7 @@
             boundingBox.position.set(
               0,                          // Centered horizontally 
               boxHeight/2 + airplaneActualBottom * boxCurrentScale,  // Bottom edge at airplane bottom
-              -airplaneActualFront        // Move back so front edge is at circle (unscaled)
+              airplaneActualFront         // Move forward so REAL front edge is at circle (unscaled)
             );
             
             boundingBox.userData = { isBoundingBox: true };
