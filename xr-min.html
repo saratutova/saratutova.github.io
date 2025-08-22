@@ -19,7 +19,7 @@
 <body>
   <div id="overlay" style="position:fixed; inset:0; z-index: 20; pointer-events:auto;">
     <div id="hint">Tap Start AR, then Place</div>
-    <div id="build">xr-min build 74 + fixed bounding box currentScale error</div>
+    <div id="build">xr-min build 75 + solid box outline like testCube</div>
     <div id="ui">
       <button id="start">Start AR</button>
       <button id="place" disabled>Place</button>
@@ -1222,24 +1222,25 @@
             const boxGeometry = new THREE.BoxGeometry(boxWidth, boxHeight, boxDepth);
             console.log(`[${logPrefix}] BoxGeometry created successfully`);
             
-            // Create wireframe
-            console.log(`[${logPrefix}] Creating WireframeGeometry...`);
-            const wireframe = new THREE.WireframeGeometry(boxGeometry);
-            console.log(`[${logPrefix}] WireframeGeometry created successfully`);
+            // Create solid wireframe box like testCube parameter
+            console.log(`[${logPrefix}] Creating EdgesGeometry for solid box outline...`);
+            const edges = new THREE.EdgesGeometry(boxGeometry);
+            console.log(`[${logPrefix}] EdgesGeometry created successfully`);
             
-            // Create material
+            // Create material for solid box edges
             console.log(`[${logPrefix}] Creating material...`);
             const boxMaterial = new THREE.LineBasicMaterial({ 
-              color: 0xff0000,  // Red wireframe
+              color: 0xff0000,  // Red box outline
               transparent: true, 
-              opacity: 0.6
+              opacity: 0.8,
+              linewidth: 3
             });
             console.log(`[${logPrefix}] Material created successfully`);
             
-            // Create line segments
-            console.log(`[${logPrefix}] Creating LineSegments...`);
-            const boundingBox = new THREE.LineSegments(wireframe, boxMaterial);
-            console.log(`[${logPrefix}] LineSegments created successfully`);
+            // Create line segments for box edges
+            console.log(`[${logPrefix}] Creating LineSegments for box edges...`);
+            const boundingBox = new THREE.LineSegments(edges, boxMaterial);
+            console.log(`[${logPrefix}] Box edge LineSegments created successfully`);
             
             // Simple positioning - just center it on the airplane
             console.log(`[${logPrefix}] Positioning bounding box...`);
@@ -1251,7 +1252,7 @@
             // Add to target
             console.log(`[${logPrefix}] Adding to target...`);
             target.add(boundingBox);
-            console.log(`[${logPrefix}] ✅ BOUNDING BOX ADDED SUCCESSFULLY: ${boxWidth.toFixed(2)}×${boxHeight.toFixed(2)}×${boxDepth.toFixed(2)}m`);
+            console.log(`[${logPrefix}] ✅ SOLID BOX OUTLINE ADDED SUCCESSFULLY: ${boxWidth.toFixed(2)}×${boxHeight.toFixed(2)}×${boxDepth.toFixed(2)}m`);
             
           } catch (boundingBoxError) {
             console.log(`[${logPrefix}] ❌ Bounding box creation failed at step:`, boundingBoxError);
