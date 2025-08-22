@@ -19,7 +19,7 @@
 <body>
   <div id="overlay" style="position:fixed; inset:0; z-index: 20; pointer-events:auto;">
     <div id="hint">Tap Start AR, then Place</div>
-    <div id="build">xr-min build 75 + solid box outline like testCube</div>
+    <div id="build">xr-min build 76 + fixed front-bottom positioning</div>
     <div id="ui">
       <button id="start">Start AR</button>
       <button id="place" disabled>Place</button>
@@ -1169,10 +1169,10 @@
         
         // SPECIAL FIX: Airplane positioning  
         if (modelType === 'airplane') {
-          // Airplane: nose slightly behind circle for better visibility
-          frontOffset = -actualFront + 0.1; // Move nose 10cm behind circle for better view
+          // Airplane: front edge should touch the circle (no offset)
+          frontOffset = -actualFront; // Front edge exactly at circle center
           groundOffset = -actualBottom - 2.0; // Extra 2m down for landing gear
-          console.log(`[${logPrefix}] Airplane: nose 10cm back, 2m down`);
+          console.log(`[${logPrefix}] Airplane: front edge at circle, 2m down`);
         }
         
         childModel.position.set(
@@ -1242,12 +1242,25 @@
             const boundingBox = new THREE.LineSegments(edges, boxMaterial);
             console.log(`[${logPrefix}] Box edge LineSegments created successfully`);
             
-            // Simple positioning - just center it on the airplane
-            console.log(`[${logPrefix}] Positioning bounding box...`);
-            boundingBox.position.set(0, boxHeight/2, 0); // Center it above ground
+            // Position bounding box to show actual airplane boundaries
+            console.log(`[${logPrefix}] Positioning bounding box to match airplane...`);
+            
+            // The bounding box should be positioned so its front-bottom corner is at origin (0,0,0)
+            // which matches where the airplane's front-bottom should be after child positioning
+            const airplaneActualBottom = (window.realModelBottom || -0.0046) * boxCurrentScale;
+            const airplaneActualFront = (window.realModelFront || 0.0649) * boxCurrentScale;
+            
+            // Position box so its front-bottom corner aligns with container origin
+            boundingBox.position.set(
+              0,                          // Centered horizontally 
+              boxHeight/2 + airplaneActualBottom,  // Bottom edge at airplane bottom
+              boxDepth/2 - airplaneActualFront     // Front edge at airplane front
+            );
+            
             boundingBox.userData = { isBoundingBox: true };
             boundingBox.renderOrder = 10000; // Render on top
             console.log(`[${logPrefix}] Bounding box positioned at:`, boundingBox.position);
+            console.log(`[${logPrefix}] Box shows: front-bottom corner at airplane's actual front-bottom`);
             
             // Add to target
             console.log(`[${logPrefix}] Adding to target...`);
