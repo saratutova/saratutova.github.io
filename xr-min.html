@@ -16,7 +16,7 @@
 <body>
   <div id="overlay" style="position:fixed; inset:0; z-index: 20; pointer-events:auto;">
     <div id="hint">Tap Start AR, then Place</div>
-    <div id="build">xr-min build 64 + improved positioning precision</div>
+    <div id="build">xr-min build 65 + reduced logging verbosity</div>
     <div id="ui">
       <button id="start">Start AR</button>
       <button id="place" disabled>Place</button>
@@ -333,29 +333,10 @@
           model = gltf.scene || (gltf.scenes && gltf.scenes[0]);
           if (!model) { console.log('[Model] GLB had no scene, fallback cube'); return; }
           
-          // DEBUG: Extract all GLB metadata and information
-          console.log('[Model] GLB METADATA ANALYSIS:');
-          console.log('[Model] - Full GLTF object:', gltf);
-          console.log('[Model] - Asset info:', gltf.asset);
-          console.log('[Model] - Scene userData:', gltf.scene ? gltf.scene.userData : 'no scene');
-          console.log('[Model] - Scenes:', gltf.scenes);
-          console.log('[Model] - Nodes:', gltf.nodes);
-          console.log('[Model] - Parser:', gltf.parser);
-          
-          // Check for unit information in various places
-          if (gltf.asset) {
-            console.log('[Model] - Asset version:', gltf.asset.version);
-            console.log('[Model] - Asset generator:', gltf.asset.generator);
-            console.log('[Model] - Asset extras:', gltf.asset.extras);
-          }
-          
-          // Check scene scale and transforms
-          if (gltf.scene) {
-            console.log('[Model] - Scene matrix:', gltf.scene.matrix);
-            console.log('[Model] - Scene matrixWorld:', gltf.scene.matrixWorld);
-            console.log('[Model] - Scene scale:', gltf.scene.scale);
-            console.log('[Model] - Scene position:', gltf.scene.position);
-            console.log('[Model] - Scene rotation:', gltf.scene.rotation);
+          // Minimal GLB metadata logging (verbose mode disabled for stable system)
+          console.log('[Model] GLB loaded:', resolvedModel);
+          if (gltf.asset && gltf.asset.generator) {
+            console.log('[Model] - Generator:', gltf.asset.generator);
           }
           
           // Check for extensions with unit data
@@ -437,12 +418,7 @@
               }
             });
             
-            console.log('[Model] VERTEX ANALYSIS:');
-            console.log('[Model] - Total vertices analyzed:', vertexCount);
-            console.log('[Model] - Actual Y range (height):', minY, 'to', maxY, '=', maxY - minY, 'm');
-            console.log('[Model] - Actual Z range (depth):', minZ, 'to', maxZ, '=', maxZ - minZ, 'm');
-            console.log('[Model] - BOTTOM difference: bbox.min.y =', bb.min.y, 'vs actual minY =', minY, 'diff =', bb.min.y - minY);
-            console.log('[Model] - TOP difference: bbox.max.y =', bb.max.y, 'vs actual maxY =', maxY, 'diff =', bb.max.y - maxY);
+            console.log('[Model] Vertex analysis: height=' + (maxY - minY).toFixed(3) + 'm, depth=' + (maxZ - minZ).toFixed(3) + 'm');
             
             // Store real bottom for accurate ground positioning
             window.realModelBottom = minY;
@@ -576,11 +552,7 @@
                   }
                 });
                 
-                console.log(`[TestCube${cubeNumber}] A-FRAME VERTEX ANALYSIS:`);
-                console.log(`[TestCube${cubeNumber}] - Total vertices analyzed:`, vertexCount);
-                console.log(`[TestCube${cubeNumber}] - Actual Y range (height):`, minY, 'to', maxY, '=', maxY - minY, 'm');
-                console.log(`[TestCube${cubeNumber}] - Actual Z range (depth):`, minZ, 'to', maxZ, '=', maxZ - minZ, 'm');
-                console.log(`[TestCube${cubeNumber}] - BOTTOM difference: bbox.min.y =`, bb.min.y, 'vs actual minY =', minY, 'diff =', bb.min.y - minY);
+                console.log(`[TestCube${cubeNumber}] A-Frame vertex analysis: h=${(maxY - minY).toFixed(3)}m, d=${(maxZ - minZ).toFixed(3)}m`);
                 
                 // Store references and real geometry data
                 if (cubeNumber === 1) {
@@ -693,23 +665,8 @@
             return; 
           }
           
-          // DEBUG: Extract GLB metadata for test cube
-          console.log(`[TestCube${cubeNumber}] GLB METADATA ANALYSIS:`);
-          console.log(`[TestCube${cubeNumber}] - Full GLTF object:`, gltf);
-          console.log(`[TestCube${cubeNumber}] - Asset info:`, gltf.asset);
-          console.log(`[TestCube${cubeNumber}] - Scene userData:`, gltf.scene ? gltf.scene.userData : 'no scene');
-          
-          if (gltf.asset) {
-            console.log(`[TestCube${cubeNumber}] - Asset version:`, gltf.asset.version);
-            console.log(`[TestCube${cubeNumber}] - Asset generator:`, gltf.asset.generator);
-            console.log(`[TestCube${cubeNumber}] - Asset extras:`, gltf.asset.extras);
-          }
-          
-          if (gltf.scene) {
-            console.log(`[TestCube${cubeNumber}] - Scene scale:`, gltf.scene.scale);
-            console.log(`[TestCube${cubeNumber}] - Scene position:`, gltf.scene.position);
-            console.log(`[TestCube${cubeNumber}] - Scene rotation:`, gltf.scene.rotation);
-          }
+          // Minimal cube GLB logging
+          console.log(`[TestCube${cubeNumber}] GLB loaded:`, glbPath);
           
           // Create container with pivot at front-bottom center (same approach as airplane)
           const cubeContainer = new THREE.Group();
@@ -1152,10 +1109,10 @@
           const isOldTestBox = originalDimensions && originalDimensions.x > 1.0; // Old TESTBOX has ~1.035m width
           if (isOldTestBox) {
             centerX = 0.136 * currentScale; // Old TESTBOX off-center
-            console.log(`[${logPrefix}] DETECTED: Old TESTBOX file - using known offsets`);
+            console.log(`[${logPrefix}] Using old TESTBOX offsets`);
           } else {
             centerX = 0; // New kostkaV2 files might be properly centered
-            console.log(`[${logPrefix}] DETECTED: New kostkaV2 file - assuming centered`);
+            console.log(`[${logPrefix}] Using new kostkaV2 centered`);
           }
         } else {
           // Default values
@@ -1164,13 +1121,7 @@
           centerX = 0;
         }
         
-        console.log(`[${logPrefix}] STORED DIMENSIONS ANALYSIS:`);
-        console.log(`[${logPrefix}] - Using stored original dimensions:`, originalDimensions);
-        console.log(`[${logPrefix}] - Current scale factor:`, currentScale);
-        console.log(`[${logPrefix}] - Scaled size:`, size);
-        console.log(`[${logPrefix}] - Actual bottom Y:`, actualBottom);
-        console.log(`[${logPrefix}] - Actual front Z:`, actualFront);
-        console.log(`[${logPrefix}] - Center X offset:`, centerX);
+        console.log(`[${logPrefix}] Stored dims: ${size.x.toFixed(2)}×${size.y.toFixed(2)}×${size.z.toFixed(2)}m (scale=${currentScale.toFixed(3)})`);
         
         // Calculate positioning offsets using STORED data (never corrupted)
         let frontOffset = -actualFront; // Front face at Z=0
@@ -1182,11 +1133,11 @@
           if (isOldTestBox) {
             // Old TESTBOX: needs orientation flip and distance adjustment
             frontOffset = actualFront - size.z - 0.2; // Flip + move 20cm back
-            console.log(`[${logPrefix}] OLD TESTBOX: Flipped + 20cm back`);
+            console.log(`[${logPrefix}] Old TESTBOX: flipped + 20cm back`);
           } else {
             // New kostkaV2: try front face directly at circle
             frontOffset = -actualFront; // Front edge at circle center
-            console.log(`[${logPrefix}] NEW KOSTKA: Front edge at circle center`);
+            console.log(`[${logPrefix}] New kostka: front at circle`);
           }
         }
         
@@ -1195,7 +1146,7 @@
           // Airplane: nose slightly behind circle for better visibility
           frontOffset = -actualFront + 0.1; // Move nose 10cm behind circle for better view
           groundOffset = -actualBottom - 2.0; // Extra 2m down for landing gear
-          console.log(`[${logPrefix}] AIRPLANE POSITIONING: Nose 10cm behind circle, extra 2m down`);
+          console.log(`[${logPrefix}] Airplane: nose 10cm back, 2m down`);
         }
         
         childModel.position.set(
@@ -1206,14 +1157,7 @@
         
         childModel.visible = true;
         
-        console.log(`[${logPrefix}] CHILD MODEL POSITIONING:`);
-        console.log(`[${logPrefix}] - Using STORED data (no corruption possible)`);
-        console.log(`[${logPrefix}] - Final positioning offset:`, childModel.position);
-        console.log(`[${logPrefix}] - Ground offset: ${groundOffset.toFixed(3)}m`);
-        console.log(`[${logPrefix}] - Front offset: ${frontOffset.toFixed(3)}m`);
-        console.log(`[${logPrefix}] - X center offset: ${(-centerX).toFixed(3)}m`);
-        console.log(`[${logPrefix}] - Front-bottom corner at container origin (0,0,0)`);
-        console.log(`[${logPrefix}] - This should fix: corruption + distance + orientation!`);
+        console.log(`[${logPrefix}] Child positioned: ground=${groundOffset.toFixed(3)}m, front=${frontOffset.toFixed(3)}m, center=${(-centerX).toFixed(3)}m`);
         
         } // End of non-procedural cube positioning
         
@@ -1225,20 +1169,7 @@
         target.quaternion.copy(rotationQuaternion);
         target.visible = true;
         
-        console.log(`[${logPrefix}] CONTAINER POSITIONING:`);
-        console.log(`[${logPrefix}] - Pivot position (front-bottom center):`, target.position);
-        console.log(`[${logPrefix}] - Rotation quaternion:`, rotationQuaternion);
-        console.log(`[${logPrefix}] - SIMPLE: Pivot IS front-bottom center - no offset needed!`);
-        
-        // STEP 4: VERIFICATION
-        console.log(`[${logPrefix}] POSITIONING VERIFICATION:`);
-        console.log(`[${logPrefix}] - Position difference from reticle: (should be 0,0,0)`);
-        console.log(`[${logPrefix}]   X diff: ${Math.abs(target.position.x - targetPosition.x).toFixed(6)}m`);
-        console.log(`[${logPrefix}]   Y diff: ${Math.abs(target.position.y - targetPosition.y).toFixed(6)}m`);
-        console.log(`[${logPrefix}]   Z diff: ${Math.abs(target.position.z - targetPosition.z).toFixed(6)}m`);
-        console.log(`[${logPrefix}] - Object visible: ${target.visible}`);
-        console.log(`[${logPrefix}] - Child visible: ${childModel.visible}`);
-        console.log(`[${logPrefix}] UNIFIED POSITIONING COMPLETE ✓`);
+        console.log(`[${logPrefix}] Container positioned at:`, target.position, '✓');
         
         return true;
         
