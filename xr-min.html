@@ -16,7 +16,7 @@
 <body>
   <div id="overlay" style="position:fixed; inset:0; z-index: 20; pointer-events:auto;">
     <div id="hint">Tap Start AR, then Place</div>
-    <div id="build">xr-min build 67 + fixed airplane size corruption</div>
+    <div id="build">xr-min build 68 + eliminated setFromObject corruption</div>
     <div id="ui">
       <button id="start">Start AR</button>
       <button id="place" disabled>Place</button>
@@ -873,20 +873,24 @@
           }
         } catch(_) {}
             
-            // Log final scale and size after all scaling
+            // Log final scale and calculated size (avoid setFromObject corruption)
             try {
-              const bboxFinal = new THREE.Box3().setFromObject(childModel);
-              const sizeFinal = new THREE.Vector3();
-              bboxFinal.getSize(sizeFinal);
+              // CRITICAL: Calculate size from stored dimensions + scale to avoid geometry corruption
+              const scaledSize = {
+                x: originalModelDimensions.x * childModel.scale.x,
+                y: originalModelDimensions.y * childModel.scale.y,
+                z: originalModelDimensions.z * childModel.scale.z
+              };
+              
               console.log('[Place] FINAL scale after all scaling:', childModel.scale);
-              console.log('[Place] FINAL model size (after scaling):', sizeFinal);
-              console.log('[Place] FINAL model dimensions: X=', sizeFinal.x.toFixed(3), 'm, Y=', sizeFinal.y.toFixed(3), 'm, Z=', sizeFinal.z.toFixed(3), 'm');
+              console.log('[Place] CALCULATED model size (from stored dims):', scaledSize);
+              console.log('[Place] FINAL model dimensions: X=', scaledSize.x.toFixed(3), 'm, Y=', scaledSize.y.toFixed(3), 'm, Z=', scaledSize.z.toFixed(3), 'm');
               
               // Real-world scale verification
               console.log('[Place] REAL-WORLD SCALE verification:');
-              console.log('[Place] - Your airplane is now', sizeFinal.x.toFixed(2), 'm wide,', sizeFinal.y.toFixed(2), 'm tall,', sizeFinal.z.toFixed(2), 'm deep');
+              console.log('[Place] - Your airplane is now', scaledSize.x.toFixed(2), 'm wide,', scaledSize.y.toFixed(2), 'm tall,', scaledSize.z.toFixed(2), 'm deep');
               console.log('[Place] - This is REAL WORLD SIZE - same as the actual airplane!');
-              console.log('[Place] - A person is ~1.7m tall - this airplane is', (sizeFinal.y/1.7).toFixed(1), 'times taller than a person');
+              console.log('[Place] - A person is ~1.7m tall - this airplane is', (scaledSize.y/1.7).toFixed(1), 'times taller than a person');
               console.log('[Place] - You should be able to walk under the wings and around the fuselage!');
               console.log('[Place] - The cockpit should be about 3-4 meters above ground level');
         } catch(_) {}
