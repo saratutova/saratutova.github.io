@@ -19,7 +19,7 @@
 <body>
   <div id="overlay" style="position:fixed; inset:0; z-index: 20; pointer-events:auto;">
     <div id="hint">Tap Start AR, then Place</div>
-    <div id="build">xr-min build 76 + fixed front-bottom positioning</div>
+    <div id="build">xr-min build 77 + testing centered airplane model</div>
     <div id="ui">
       <button id="start">Start AR</button>
       <button id="place" disabled>Place</button>
@@ -59,7 +59,7 @@
     const unitScale = Number.isFinite(unitScaleParam) ? unitScaleParam :
       (unitsParam === 'cm' ? 0.01 : unitsParam === 'mm' ? 0.001 : unitsParam === 'in' ? 0.0254 : unitsParam === 'ft' ? 0.3048 : 1);
     const targetMaxDimMeters = parseFloat(url.searchParams.get('target') || url.searchParams.get('length') || url.searchParams.get('max') || 'NaN');
-     const modelUrl = url.searchParams.get('model') || './models/7579_3K_V4.glb';
+     const modelUrl = url.searchParams.get('model') || './models/Samolot_Pozycja_000_na_srodku.glb';
     const useV1 = url.searchParams.get('v1') === '1';
     const resolvedModel = useV1 ? './models/7579_3K_V1.glb' : modelUrl;
      
@@ -1169,10 +1169,10 @@
         
         // SPECIAL FIX: Airplane positioning  
         if (modelType === 'airplane') {
-          // Airplane: front edge should touch the circle (no offset)
-          frontOffset = -actualFront; // Front edge exactly at circle center
+          // For CENTERED airplane model: move back so front edge touches circle
+          frontOffset = -actualFront; // Move back by front distance to put front at circle
           groundOffset = -actualBottom - 2.0; // Extra 2m down for landing gear
-          console.log(`[${logPrefix}] Airplane: front edge at circle, 2m down`);
+          console.log(`[${logPrefix}] CENTERED Airplane: moved back so front touches circle, 2m down`);
         }
         
         childModel.position.set(
@@ -1251,10 +1251,11 @@
             const airplaneActualFront = (window.realModelFront || 0.0649) * boxCurrentScale;
             
             // Position box so its front-bottom corner aligns with container origin
+            // For centered model: box center should be at child position offset
             boundingBox.position.set(
               0,                          // Centered horizontally 
               boxHeight/2 + airplaneActualBottom,  // Bottom edge at airplane bottom
-              boxDepth/2 - airplaneActualFront     // Front edge at airplane front
+              -airplaneActualFront        // Front edge at circle (same as child frontOffset)
             );
             
             boundingBox.userData = { isBoundingBox: true };
