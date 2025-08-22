@@ -16,7 +16,7 @@
 <body>
   <div id="overlay" style="position:fixed; inset:0; z-index: 20; pointer-events:auto;">
     <div id="hint">Tap Start AR, then Place</div>
-    <div id="build">xr-min build 66 + fixed TestCube verbose logging</div>
+    <div id="build">xr-min build 67 + fixed airplane size corruption</div>
     <div id="ui">
       <button id="start">Start AR</button>
       <button id="place" disabled>Place</button>
@@ -211,13 +211,13 @@
                  model = modelContainer;
                  modelLoaded = true;
                  
-                 // Store the original model dimensions and analyze actual geometry
-                 try { 
-                   const bb = new THREE.Box3().setFromObject(model); 
-                   const szz = new THREE.Vector3(); 
-                   bb.getSize(szz); 
-                   originalModelDimensions = { x: szz.x, y: szz.y, z: szz.z };
-                   originalModelClone = model.clone(true); // Store a clean copy
+                                 // Store the original model dimensions and analyze actual geometry
+                try { 
+                  const bb = new THREE.Box3().setFromObject(model); 
+                  const szz = new THREE.Vector3(); 
+                  bb.getSize(szz); 
+                  originalModelDimensions = Object.freeze({ x: szz.x, y: szz.y, z: szz.z });
+                  originalModelClone = model.clone(true); // Store a clean copy
                    
                    console.log('[Model] GLB loaded via A-Frame fallback', glbUrl, 'final size m=', originalModelDimensions);
                    console.log('[Model] A-FRAME BOUNDING BOX ANALYSIS:');
@@ -378,7 +378,7 @@
             const bb = new THREE.Box3().setFromObject(model); 
             const szz = new THREE.Vector3(); 
             bb.getSize(szz); 
-            originalModelDimensions = { x: szz.x, y: szz.y, z: szz.z };
+            originalModelDimensions = Object.freeze({ x: szz.x, y: szz.y, z: szz.z });
             originalModelClone = model.clone(true); // Store a clean copy
             
             console.log('[Model] GLB loaded', resolvedModel, 'final size m=', originalModelDimensions);
@@ -930,12 +930,19 @@
         const actualBottom = window.realModelBottom || -0.0046; // From logs: airplane bottom
         const actualFront = window.realModelFront || 0.0649;    // From logs: airplane front
         
+        // CRITICAL: Pass a deep copy to prevent corruption of original dimensions
+        const cleanDimensions = {
+          x: originalModelDimensions.x,
+          y: originalModelDimensions.y,
+          z: originalModelDimensions.z
+        };
+        
         const success = positionModel({
           target: target,
           targetPosition: targetPosition,
           rotationQuaternion: rotationQuaternion,
           modelType: 'airplane',
-          originalDimensions: originalModelDimensions,
+          originalDimensions: cleanDimensions,
           actualBottom: actualBottom,
           actualFront: actualFront,
           expectedHeight: 13.53, // Real airplane height in meters
@@ -1061,10 +1068,16 @@
         const currentScale = childModel.scale.x; // Current scale factor
         
         // Use stored original model dimensions (clean, never corrupted)
+        // CRITICAL: Create deep copy to prevent corruption of original reference
+        const cleanOriginalDims = {
+          x: originalDimensions.x,
+          y: originalDimensions.y, 
+          z: originalDimensions.z
+        };
         const size = {
-          x: originalDimensions.x * currentScale,
-          y: originalDimensions.y * currentScale,
-          z: originalDimensions.z * currentScale
+          x: cleanOriginalDims.x * currentScale,
+          y: cleanOriginalDims.y * currentScale,
+          z: cleanOriginalDims.z * currentScale
         };
         
         // Calculate the model center based on stored vertex data
