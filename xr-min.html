@@ -19,7 +19,7 @@
 <body>
   <div id="overlay" style="position:fixed; inset:0; z-index: 20; pointer-events:auto;">
     <div id="hint">Tap Start AR, then Place</div>
-    <div id="build">xr-min build 73 + green Place button when surface ready</div>
+    <div id="build">xr-min build 74 + fixed bounding box currentScale error</div>
     <div id="ui">
       <button id="start">Start AR</button>
       <button id="place" disabled>Place</button>
@@ -1200,7 +1200,10 @@
           try {
             console.log(`[${logPrefix}] Starting bounding box creation...`);
             console.log(`[${logPrefix}] Original dimensions:`, originalDimensions);
-            console.log(`[${logPrefix}] Current scale:`, currentScale);
+            
+            // Get current scale from childModel
+            const boxCurrentScale = childModel.scale.x; // Current scale factor
+            console.log(`[${logPrefix}] Current scale:`, boxCurrentScale);
             
             // Remove any existing bounding box
             const existingBox = target.children.find(child => child.userData && child.userData.isBoundingBox);
@@ -1211,9 +1214,9 @@
             
             // Create simple box geometry first
             console.log(`[${logPrefix}] Creating BoxGeometry...`);
-            const boxWidth = originalDimensions.x * currentScale;
-            const boxHeight = originalDimensions.y * currentScale; 
-            const boxDepth = originalDimensions.z * currentScale;
+            const boxWidth = originalDimensions.x * boxCurrentScale;
+            const boxHeight = originalDimensions.y * boxCurrentScale; 
+            const boxDepth = originalDimensions.z * boxCurrentScale;
             console.log(`[${logPrefix}] Box dimensions: ${boxWidth.toFixed(2)} × ${boxHeight.toFixed(2)} × ${boxDepth.toFixed(2)}`);
             
             const boxGeometry = new THREE.BoxGeometry(boxWidth, boxHeight, boxDepth);
