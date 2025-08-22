@@ -19,7 +19,7 @@
 <body>
   <div id="overlay" style="position:fixed; inset:0; z-index: 20; pointer-events:auto;">
     <div id="hint">Tap Start AR, then Place</div>
-    <div id="build">xr-min build 79 + fixed airplane distance positioning</div>
+    <div id="build">xr-min build 80 + fixed centered model positioning scale</div>
     <div id="ui">
       <button id="start">Start AR</button>
       <button id="place" disabled>Place</button>
@@ -1118,8 +1118,9 @@
         let actualBottom, actualFront, centerX;
         
         if (modelType === 'airplane') {
-          actualBottom = (window.realModelBottom || -0.0046) * currentScale;
-          actualFront = (window.realModelFront || 0.0649) * currentScale;
+          // For centered airplane: use UNSCALED distances for positioning offsets
+          actualBottom = (window.realModelBottom || -0.0046); // Keep original size
+          actualFront = (window.realModelFront || 0.0649);     // Keep original size  
           centerX = 0; // Airplane is centered
         } else if (modelType.includes('testCube')) {
           actualBottom = (window[`realModelBottom${modelType.slice(-1)}`] || 0) * currentScale;
@@ -1243,15 +1244,16 @@
             
             // The bounding box should be positioned so its front-bottom corner is at origin (0,0,0)
             // which matches where the airplane's front-bottom should be after child positioning
-            const airplaneActualBottom = (window.realModelBottom || -0.0046) * boxCurrentScale;
-            const airplaneActualFront = (window.realModelFront || 0.0649) * boxCurrentScale;
+            // For positioning, use original unscaled distances
+            const airplaneActualBottom = (window.realModelBottom || -0.0046);
+            const airplaneActualFront = (window.realModelFront || 0.0649);
             
             // Position box so its front-bottom corner aligns with container origin
             // For centered model: move box back so front edge is at circle
             boundingBox.position.set(
               0,                          // Centered horizontally 
-              boxHeight/2 + airplaneActualBottom,  // Bottom edge at airplane bottom
-              -airplaneActualFront        // Move back so front edge is at circle
+              boxHeight/2 + airplaneActualBottom * boxCurrentScale,  // Bottom edge at airplane bottom
+              -airplaneActualFront        // Move back so front edge is at circle (unscaled)
             );
             
             boundingBox.userData = { isBoundingBox: true };
