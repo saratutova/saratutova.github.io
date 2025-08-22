@@ -16,7 +16,7 @@
 <body>
   <div id="overlay" style="position:fixed; inset:0; z-index: 20; pointer-events:auto;">
     <div id="hint">Tap Start AR, then Place</div>
-    <div id="build">xr-min build 68 + eliminated setFromObject corruption</div>
+    <div id="build">xr-min build 69 + fixed reticle restart + hit source cleanup</div>
     <div id="ui">
       <button id="start">Start AR</button>
       <button id="place" disabled>Place</button>
@@ -760,6 +760,23 @@
         exitBtn.disabled=true; 
         reticle.visible=false; 
         cube.visible=false; 
+        
+        // Clean up hit source on session end
+        if (hitSource) {
+          try {
+            hitSource.cancel();
+            console.log('[XR] Hit source cancelled on session end');
+          } catch(e) {
+            console.log('[XR] Hit source end cleanup failed:', e);
+          }
+          hitSource = null;
+        }
+        
+        // Clean up reference spaces
+        refSpace = null;
+        viewerSpace = null;
+        xrSession = null;
+        
         // Hide ALL objects when session ends
         if (model) model.visible = false;
         if (testCubeObj) testCubeObj.visible = false;
@@ -770,6 +787,18 @@
 
       refSpace = await session.requestReferenceSpace('local-floor');
       viewerSpace = await session.requestReferenceSpace('viewer');
+      
+      // Clean up any existing hit source before creating new one
+      if (hitSource) {
+        try {
+          hitSource.cancel();
+          console.log('[XR] Previous hit source cancelled');
+        } catch(e) {
+          console.log('[XR] Hit source cleanup failed:', e);
+        }
+        hitSource = null;
+      }
+      
       try {
       hitSource = await session.requestHitTestSource({ space: viewerSpace });
         console.log('[XR] Hit test source created successfully');
