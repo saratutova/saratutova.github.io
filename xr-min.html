@@ -19,7 +19,7 @@
 <body>
   <div id="overlay" style="position:fixed; inset:0; z-index: 20; pointer-events:auto;">
     <div id="hint">Tap Start AR, then Place</div>
-    <div id="build">xr-min build 77 + testing centered airplane model</div>
+    <div id="build">xr-min build 78 + fixed front-bottom edge positioning</div>
     <div id="ui">
       <button id="start">Start AR</button>
       <button id="place" disabled>Place</button>
@@ -68,8 +68,6 @@
     const hint = document.getElementById('hint');
     const startBtn = document.getElementById('start');
     const placeBtn = document.getElementById('place');
-    const placeCube1Btn = document.getElementById('placeCube1');
-    const placeCube2Btn = document.getElementById('placeCube2');
     const exitBtn = document.getElementById('exit');
     const logsBtn = document.getElementById('logs');
 
@@ -757,8 +755,6 @@
       session.addEventListener('end', ()=>{ 
         startBtn.textContent='Start AR'; 
         placeBtn.disabled=true; 
-        if (placeCube1Btn) placeCube1Btn.disabled=true;
-        if (placeCube2Btn) placeCube2Btn.disabled=true;
         exitBtn.disabled=true; 
         reticle.visible=false; 
         cube.visible=false; 
@@ -814,8 +810,6 @@
         hint.textContent = 'Hit test failed - will use camera placement';
       }
       placeBtn.disabled = false;
-      if (placeCube1Btn) placeCube1Btn.disabled = false;
-      if (placeCube2Btn) placeCube2Btn.disabled = false;
       autoPlaced = false;
       if (autoPlace) {
         // Fallback auto-place using camera after 1.5s if no hit yet
@@ -1169,10 +1163,12 @@
         
         // SPECIAL FIX: Airplane positioning  
         if (modelType === 'airplane') {
-          // For CENTERED airplane model: move back so front edge touches circle
-          frontOffset = -actualFront; // Move back by front distance to put front at circle
+          // For CENTERED airplane model: move forward so front edge touches circle
+          // actualFront is the distance from center to front edge (positive)
+          // To put front edge at circle, move forward by that distance
+          frontOffset = actualFront; // Move forward so front edge is at circle
           groundOffset = -actualBottom - 2.0; // Extra 2m down for landing gear
-          console.log(`[${logPrefix}] CENTERED Airplane: moved back so front touches circle, 2m down`);
+          console.log(`[${logPrefix}] CENTERED Airplane: moved forward so front edge touches circle, 2m down`);
         }
         
         childModel.position.set(
@@ -1251,11 +1247,11 @@
             const airplaneActualFront = (window.realModelFront || 0.0649) * boxCurrentScale;
             
             // Position box so its front-bottom corner aligns with container origin
-            // For centered model: box center should be at child position offset
+            // For centered model: move box forward so front edge is at circle
             boundingBox.position.set(
               0,                          // Centered horizontally 
               boxHeight/2 + airplaneActualBottom,  // Bottom edge at airplane bottom
-              -airplaneActualFront        // Front edge at circle (same as child frontOffset)
+              airplaneActualFront         // Move forward so front edge is at circle
             );
             
             boundingBox.userData = { isBoundingBox: true };
@@ -1397,8 +1393,6 @@
     // Bind UI early and robustly
     if (startBtn) startBtn.addEventListener('click', () => { console.log('[UI] Start AR clicked'); try { startAR(); } catch(e){ console.log('[UI] startAR failed', e); } });
     if (placeBtn) placeBtn.addEventListener('click', () => { console.log('[UI] Place clicked'); try { place(); } catch(e){ console.log('[UI] place failed', e); } });
-    if (placeCube1Btn) placeCube1Btn.addEventListener('click', () => { console.log('[UI] Place Cube 1 clicked'); try { placeCube(1); } catch(e){ console.log('[UI] placeCube1 failed', e); } });
-    if (placeCube2Btn) placeCube2Btn.addEventListener('click', () => { console.log('[UI] Place Cube 2 clicked'); try { placeCube(2); } catch(e){ console.log('[UI] placeCube2 failed', e); } });
     if (exitBtn) exitBtn.addEventListener('click', () => { console.log('[UI] Exit clicked'); try { const s = renderer.xr.getSession(); if (s) s.end(); } catch(_) {} });
     if (logsBtn) logsBtn.addEventListener('click', () => {
       try {
