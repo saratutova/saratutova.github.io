@@ -19,7 +19,7 @@
 <body>
   <div id="overlay" style="position:fixed; inset:0; z-index: 20; pointer-events:auto;">
     <div id="hint">Tap Start AR, then Place</div>
-    <div id="build">xr-min build 78 + fixed front-bottom edge positioning</div>
+    <div id="build">xr-min build 79 + fixed airplane distance positioning</div>
     <div id="ui">
       <button id="start">Start AR</button>
       <button id="place" disabled>Place</button>
@@ -737,8 +737,8 @@
     try { initModelLoader(); } catch(_) {}
     
     // Load test cubes
-    try { loadTestCube(1, 'models/kostkaV2_centrum_Kolor.glb'); } catch(_) {}
-    try { loadTestCube(2, 'models/kostkaV2_Front.glb'); } catch(_) {}
+    //try { loadTestCube(1, 'models/kostkaV2_centrum_Kolor.glb'); } catch(_) {}
+    //try { loadTestCube(2, 'models/kostkaV2_Front.glb'); } catch(_) {}
 
     let xrSession = null; let refSpace = null; let viewerSpace = null; let hitSource = null; let autoPlaced = false;
 
@@ -1163,12 +1163,12 @@
         
         // SPECIAL FIX: Airplane positioning  
         if (modelType === 'airplane') {
-          // For CENTERED airplane model: move forward so front edge touches circle
-          // actualFront is the distance from center to front edge (positive)
-          // To put front edge at circle, move forward by that distance
-          frontOffset = actualFront; // Move forward so front edge is at circle
+          // For CENTERED airplane model: move BACK so front edge touches circle
+          // actualFront is the distance from center to front edge (positive: +0.282m)
+          // To put front edge at circle (Z=0), we need to move the center BACK by that distance
+          frontOffset = -actualFront; // Move center back so front edge is at circle
           groundOffset = -actualBottom - 2.0; // Extra 2m down for landing gear
-          console.log(`[${logPrefix}] CENTERED Airplane: moved forward so front edge touches circle, 2m down`);
+          console.log(`[${logPrefix}] CENTERED Airplane: moved center back so front edge at circle, 2m down`);
         }
         
         childModel.position.set(
@@ -1247,11 +1247,11 @@
             const airplaneActualFront = (window.realModelFront || 0.0649) * boxCurrentScale;
             
             // Position box so its front-bottom corner aligns with container origin
-            // For centered model: move box forward so front edge is at circle
+            // For centered model: move box back so front edge is at circle
             boundingBox.position.set(
               0,                          // Centered horizontally 
               boxHeight/2 + airplaneActualBottom,  // Bottom edge at airplane bottom
-              airplaneActualFront         // Move forward so front edge is at circle
+              -airplaneActualFront        // Move back so front edge is at circle
             );
             
             boundingBox.userData = { isBoundingBox: true };
