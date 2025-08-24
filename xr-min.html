@@ -19,7 +19,7 @@
 <body>
   <div id="overlay" style="position:fixed; inset:0; z-index: 20; pointer-events:auto;">
     <div id="hint">Tap Start AR, then Place</div>
-    <div id="build">xr-min build 82 + debug airplane orientation</div>
+    <div id="build">xr-min build 83 + FIXED airplane nose orientation</div>
     <div id="ui">
       <button id="start">Start AR</button>
       <button id="place" disabled>Place</button>
@@ -1164,16 +1164,21 @@
         
         // SPECIAL FIX: Airplane positioning  
         if (modelType === 'airplane') {
-          // DEBUG: Let's try both orientations to figure out which is correct
-          // Model Z range: -0.263 (back) to +0.282 (front) = 0.545m total depth
-          console.log(`[${logPrefix}] DEBUG: actualFront=${actualFront}, actualBack=${window.realModelBack || 'unknown'}`);
-          console.log(`[${logPrefix}] DEBUG: If actualFront (+0.282) is nose: put nose at circle by moving center BACK -0.282m`);
-          console.log(`[${logPrefix}] DEBUG: If actualFront (+0.282) is tail: put nose at circle by moving center FORWARD +0.282m`);
+          // CONFIRMED: The airplane model orientation is:
+          // -Z = NOSE (front of airplane) at -0.263
+          // +Z = TAIL (back of airplane) at +0.282
+          // So actualFront (+0.282) is actually the TAIL!
           
-          // Let's try the opposite direction - if you're inside, the orientation is wrong
-          frontOffset = -actualFront; // Try moving center BACK to put +Z edge at circle
+          const actualNose = window.realModelBack || -0.263; // The actual nose is at -Z
+          const actualTail = actualFront; // actualFront (+0.282) is the tail
+          
+          // To put the NOSE at the circle, we need to move center FORWARD by |actualNose|
+          frontOffset = -actualNose; // Move center forward to put NOSE at circle
           groundOffset = -actualBottom - 2.0; // Extra 2m down for landing gear
-          console.log(`[${logPrefix}] CENTERED Airplane: TESTING - moved center BACK so +Z edge at circle, 2m down`);
+          
+          console.log(`[${logPrefix}] AIRPLANE ORIENTATION FIXED:`);
+          console.log(`[${logPrefix}] - Nose at Z=${actualNose}, Tail at Z=${actualTail}`);
+          console.log(`[${logPrefix}] - Moving center forward by ${-actualNose}m to put NOSE at circle`);
         }
         
         childModel.position.set(
@@ -1257,7 +1262,7 @@
             boundingBox.position.set(
               0,                          // Centered horizontally 
               boxHeight/2 + airplaneActualBottom * boxCurrentScale,  // Bottom edge at airplane bottom
-              -airplaneActualFront        // TESTING: Move back to match child positioning
+              0.263                       // Move to match NOSE position (front offset = +0.263)
             );
             
             boundingBox.userData = { isBoundingBox: true };
