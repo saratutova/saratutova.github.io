@@ -19,7 +19,7 @@
 <body>
   <div id="overlay" style="position:fixed; inset:0; z-index: 20; pointer-events:auto;">
     <div id="hint">Tap Start AR, then Place</div>
-    <div id="build">xr-min build 89 + SCALE CORRECTION: frontOffset now scaled properly</div>
+    <div id="build">xr-min build 90 + SIGN FIX: frontOffset direction corrected</div>
     <div id="ui">
       <button id="start">Start AR</button>
       <button id="place" disabled>Place</button>
@@ -1172,14 +1172,15 @@
           const actualTail = window.realModelBack || -0.263; // The actual tail is at -Z
           
           // CORRECTED: Apply scale to positioning offsets!
-          frontOffset = -actualNose * currentScale; // Put nose AT the circle with proper scale
+          // SIGN FIX: We want the nose at the circle, so move airplane FORWARD, not BACK
+          frontOffset = +actualNose * currentScale; // Put nose AT the circle with proper scale
           groundOffset = -actualBottom * currentScale - 2.0; // Scale the ground offset too
           
           console.log(`[${logPrefix}] AIRPLANE POSITIONING WITH SCALE CORRECTION:`);
           console.log(`[${logPrefix}] - Nose at Z=${actualNose} (unscaled), Tail at Z=${actualTail} (unscaled)`);
           console.log(`[${logPrefix}] - Scale factor: ${currentScale.toFixed(3)}`);
-          console.log(`[${logPrefix}] - frontOffset = -${actualNose} × ${currentScale.toFixed(3)} = ${frontOffset.toFixed(3)}m`);
-          console.log(`[${logPrefix}] - Moving center BACK by ${frontOffset.toFixed(3)}m to put NOSE at circle`);
+          console.log(`[${logPrefix}] - frontOffset = +${actualNose} × ${currentScale.toFixed(3)} = ${frontOffset.toFixed(3)}m`);
+          console.log(`[${logPrefix}] - Moving center FORWARD by ${frontOffset.toFixed(3)}m to put NOSE at circle`);
         }
         
         childModel.position.set(
