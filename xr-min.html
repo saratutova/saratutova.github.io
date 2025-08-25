@@ -19,7 +19,7 @@
 <body>
   <div id="overlay" style="position:fixed; inset:0; z-index: 20; pointer-events:auto;">
     <div id="hint">Tap Start AR, then Place</div>
-    <div id="build">xr-min build 84 + FIXED camera position 10m from nose</div>
+    <div id="build">xr-min build 85 + CORRECTED airplane uses same logic as cubes</div>
     <div id="ui">
       <button id="start">Start AR</button>
       <button id="place" disabled>Place</button>
@@ -1172,16 +1172,15 @@
           const actualNose = window.realModelBack || -0.263; // The actual nose is at -Z
           const actualTail = actualFront; // actualFront (+0.282) is the tail
           
-          // To position camera in front of nose, move airplane center BACK from circle
-          // This puts the nose ahead of the circle, so camera sees nose from proper distance
-          const noseDistance = 10.0; // Position camera 10m in front of nose for good view
-          frontOffset = -actualNose - noseDistance; // Move center back: nose + viewing distance
+          // CORRECTED LOGIC: Position airplane like cubes do - nose near the circle
+          // Since nose is at Z=-0.263, we need frontOffset = -actualNose = +0.263 to put nose at circle
+          frontOffset = -actualNose; // Put nose AT the circle (same as cube logic)
           groundOffset = -actualBottom - 2.0; // Extra 2m down for landing gear
           
-          console.log(`[${logPrefix}] AIRPLANE POSITIONING FIXED:`);
+          console.log(`[${logPrefix}] AIRPLANE POSITIONING CORRECTED:`);
           console.log(`[${logPrefix}] - Nose at Z=${actualNose}, Tail at Z=${actualTail}`);
-          console.log(`[${logPrefix}] - Moving center back by ${-frontOffset}m (nose + ${noseDistance}m viewing distance)`);
-          console.log(`[${logPrefix}] - Camera will be ${noseDistance}m in front of airplane nose`);
+          console.log(`[${logPrefix}] - Moving center forward by ${-frontOffset}m to put NOSE at circle`);
+          console.log(`[${logPrefix}] - Using SAME logic as cubes (frontOffset = -actualFront)`);
         }
         
         childModel.position.set(
@@ -1265,7 +1264,7 @@
             boundingBox.position.set(
               0,                          // Centered horizontally 
               boxHeight/2 + airplaneActualBottom * boxCurrentScale,  // Bottom edge at airplane bottom
-              10.263                      // Move to match NOSE position (nose + viewing distance)
+              0.263                       // Move to match NOSE position (frontOffset = +0.263)
             );
             
             boundingBox.userData = { isBoundingBox: true };
