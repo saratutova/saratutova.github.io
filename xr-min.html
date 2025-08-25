@@ -19,7 +19,7 @@
 <body>
   <div id="overlay" style="position:fixed; inset:0; z-index: 20; pointer-events:auto;">
     <div id="hint">Tap Start AR, then Place</div>
-    <div id="build">xr-min build 90 + SIGN FIX: frontOffset direction corrected</div>
+    <div id="build">xr-min build 91 + UNIFIED: airplane uses same positioning as cubes</div>
     <div id="ui">
       <button id="start">Start AR</button>
       <button id="place" disabled>Place</button>
@@ -961,9 +961,9 @@
         const rotationQuaternion = new THREE.Quaternion(); // Identity rotation (no rotation)
         // rotationQuaternion.setFromUnitVectors(defaultForward, airplaneForwardDirection); // DISABLED
         
-        // USE UNIFIED POSITIONING SYSTEM
-        const actualBottom = window.realModelBottom || -0.04470553875435144; // From logs: airplane bottom
-        const actualFront = window.realModelFront || 0.2817547595500946;    // From logs: airplane front
+        // USE UNIFIED POSITIONING SYSTEM (same as cubes)
+        const actualBottom = window.realModelBottom || -0.04470553875435144;
+        const actualFront = window.realModelFront || 0.2817547595500946;
         
         // CRITICAL: Pass a deep copy to prevent corruption of original dimensions
         const cleanDimensions = {
@@ -980,7 +980,7 @@
           originalDimensions: cleanDimensions,
           actualBottom: actualBottom,
           actualFront: actualFront,
-          expectedHeight: 13.53, // Real airplane height in meters
+          expectedHeight: null, // NO SCALING - use original size like cubes
           logPrefix: 'Place'
         });
         
@@ -1082,10 +1082,11 @@
           childModel.visible = true;
         } else {
         
-        // STEP 1: SCALING (only for airplane)
-        if (modelType === 'airplane' && expectedHeight) {
+        // STEP 1: NO SCALING FOR AIRPLANE (use as-is like cubes)
+        if (modelType === 'airplane') {
+          console.log(`[${logPrefix}] AIRPLANE: NO SCALING - using original GLB scale like cubes`);
+        } else if (expectedHeight) {
           childModel.scale.setScalar(1); // Reset scale
-          
           const currentHeight = originalDimensions.y;
           const scaleFactor = expectedHeight / currentHeight;
           childModel.scale.setScalar(scaleFactor);
@@ -1119,9 +1120,9 @@
         let actualBottom, actualFront, centerX;
         
         if (modelType === 'airplane') {
-          // For centered airplane: use UNSCALED distances for positioning offsets
-          actualBottom = (window.realModelBottom || -0.04470553875435144); // Keep original size - CORRECTED
-          actualFront = (window.realModelFront || 0.2817547595500946);     // Keep original size - CORRECTED  
+          // For airplane: use same logic as cubes with scale factor 1
+          actualBottom = (window.realModelBottom || -0.04470553875435144) * currentScale;
+          actualFront = (window.realModelFront || 0.2817547595500946) * currentScale;
           centerX = 0; // Airplane is centered
         } else if (modelType.includes('testCube')) {
           actualBottom = (window[`realModelBottom${modelType.slice(-1)}`] || 0) * currentScale;
@@ -1163,24 +1164,15 @@
           }
         }
         
-        // SPECIAL FIX: Airplane positioning  
+        // UNIFIED POSITIONING: Use same logic as cubes for airplane
         if (modelType === 'airplane') {
-          // CRITICAL: For airplane, actualFront/actualBottom are UNSCALED but child model IS SCALED!
-          // We need to apply currentScale to the offsets for proper positioning
+          console.log(`[${logPrefix}] AIRPLANE: Using standard cube positioning logic (no special scaling)`);
+          // Use the same simple logic as cubes: -actualFront to put front face at circle
+          frontOffset = -actualFront; // Standard positioning like cubes
+          groundOffset = -actualBottom; // Standard ground positioning like cubes
           
-          const actualNose = actualFront; // actualFront (+0.282) is the NOSE!
-          const actualTail = window.realModelBack || -0.263; // The actual tail is at -Z
-          
-          // CORRECTED: Apply scale to positioning offsets!
-          // SIGN FIX: We want the nose at the circle, so move airplane FORWARD, not BACK
-          frontOffset = +actualNose * currentScale; // Put nose AT the circle with proper scale
-          groundOffset = -actualBottom * currentScale - 2.0; // Scale the ground offset too
-          
-          console.log(`[${logPrefix}] AIRPLANE POSITIONING WITH SCALE CORRECTION:`);
-          console.log(`[${logPrefix}] - Nose at Z=${actualNose} (unscaled), Tail at Z=${actualTail} (unscaled)`);
-          console.log(`[${logPrefix}] - Scale factor: ${currentScale.toFixed(3)}`);
-          console.log(`[${logPrefix}] - frontOffset = +${actualNose} × ${currentScale.toFixed(3)} = ${frontOffset.toFixed(3)}m`);
-          console.log(`[${logPrefix}] - Moving center FORWARD by ${frontOffset.toFixed(3)}m to put NOSE at circle`);
+          console.log(`[${logPrefix}] - actualFront: ${actualFront} -> frontOffset: ${frontOffset}`);
+          console.log(`[${logPrefix}] - actualBottom: ${actualBottom} -> groundOffset: ${groundOffset}`);
         }
         
         childModel.position.set(
