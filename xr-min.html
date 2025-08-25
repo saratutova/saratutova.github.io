@@ -19,13 +19,12 @@
 <body>
   <div id="overlay" style="position:fixed; inset:0; z-index: 20; pointer-events:auto;">
     <div id="hint">Tap Start AR, then Place</div>
-    <div id="build">xr-min build 92 + TEST CUBE: added button + removed airplane scaling</div>
+    <div id="build">xr-min build 93 + ROTATION RESTORED: airplane now faces camera + positioning fixed</div>
     <div id="ui">
       <button id="start">Start AR</button>
       <button id="place" disabled>Place</button>
       <button id="exit" disabled>Exit</button>
       <button id="logs">Download logs</button>
-      <button id="placeTestCubeBtn">Place Test Cube</button>
     </div>
   </div>
 
@@ -863,18 +862,17 @@
       
       // Position the airplane using UNIFIED POSITIONING SYSTEM
       if (target === model && modelLoaded) {
-        // TEMPORARILY DISABLE ROTATION TO TEST POSITIONING
-        // Calculate rotation to face camera
-        const cameraDirection = new THREE.Vector3();
-        camera.getWorldDirection(cameraDirection);
-        
-        const airplaneForwardDirection = cameraDirection.clone().multiplyScalar(-1);
-        airplaneForwardDirection.y = 0; // Keep upright
-        airplaneForwardDirection.normalize();
-        
-        const defaultForward = new THREE.Vector3(0, 0, 1);
-        const rotationQuaternion = new THREE.Quaternion(); // Identity rotation (no rotation)
-        // rotationQuaternion.setFromUnitVectors(defaultForward, airplaneForwardDirection); // DISABLED
+                 // Calculate rotation to face camera
+         const cameraDirection = new THREE.Vector3();
+         camera.getWorldDirection(cameraDirection);
+         
+         const airplaneForwardDirection = cameraDirection.clone().multiplyScalar(-1);
+         airplaneForwardDirection.y = 0; // Keep upright
+         airplaneForwardDirection.normalize();
+         
+         const defaultForward = new THREE.Vector3(0, 0, 1);
+         const rotationQuaternion = new THREE.Quaternion();
+         rotationQuaternion.setFromUnitVectors(defaultForward, airplaneForwardDirection);
         
         // USE UNIFIED POSITIONING SYSTEM (same as cubes)
         const actualBottom = window.realModelBottom || -0.04470553875435144;
@@ -1278,58 +1276,6 @@
       }
     }
 
-    function placeTestCube() {
-      try {
-        console.log('[PlaceTestCube] Starting test cube placement...');
-        
-        // Hide other objects
-        if (model) model.visible = false;
-        if (testCubeObj) testCubeObj.visible = false;
-        cube.visible = false;
-        
-        // Create a simple 1x1x1 meter cube for testing
-        const testCube = new THREE.Mesh(
-          new THREE.BoxGeometry(1, 1, 1),
-          new THREE.MeshBasicMaterial({ 
-            color: 0x00ff00, 
-            transparent: true, 
-            opacity: 0.8 
-          })
-        );
-        
-        // Position at reticle or camera fallback
-        let targetPosition = new THREE.Vector3();
-        let rotationQuaternion = new THREE.Quaternion();
-        
-        if (reticle.visible) {
-          targetPosition.copy(reticle.position);
-          rotationQuaternion.copy(reticle.quaternion);
-        } else {
-          // Fallback: place 2m in front of camera
-          camera.getWorldPosition(targetPosition);
-          const forward = new THREE.Vector3();
-          camera.getWorldDirection(forward);
-          targetPosition.add(forward.multiplyScalar(2));
-          targetPosition.y = Math.max(0, camera.position.y - 1.5);
-        }
-        
-        // Position the cube with front-bottom corner at target
-        testCube.position.copy(targetPosition);
-        testCube.position.y += 0.5; // Move up so bottom face is at ground
-        testCube.position.z -= 0.5; // Move back so front face is at target
-        
-        testCube.visible = true;
-        scene.add(testCube);
-        
-        console.log('[PlaceTestCube] Test cube placed at:', testCube.position);
-        console.log('[PlaceTestCube] Cube dimensions: 1×1×1 meters');
-        console.log('[PlaceTestCube] Front-bottom corner should be at spawn circle');
-        
-      } catch(err) {
-        console.log('[PlaceTestCube] Error:', err);
-      }
-    }
-
     function onXRFrame(t, frame){
       const session = frame.session; const pose = frame.getViewerPose(refSpace);
       if (hitSource && refSpace) {
@@ -1366,17 +1312,6 @@
     if (startBtn) startBtn.addEventListener('click', () => { console.log('[UI] Start AR clicked'); try { startAR(); } catch(e){ console.log('[UI] startAR failed', e); } });
     if (placeBtn) placeBtn.addEventListener('click', () => { console.log('[UI] Place clicked'); try { place(); } catch(e){ console.log('[UI] place failed', e); } });
     if (exitBtn) exitBtn.addEventListener('click', () => { console.log('[UI] Exit clicked'); try { const s = renderer.xr.getSession(); if (s) s.end(); } catch(_) {} });
-    
-    // Test cube button
-    const placeTestCubeBtn = document.getElementById('placeTestCubeBtn');
-    if (placeTestCubeBtn) placeTestCubeBtn.addEventListener('click', () => { 
-      console.log('[UI] Place Test Cube clicked'); 
-      try { 
-        placeTestCube(); 
-      } catch(e){ 
-        console.log('[UI] placeTestCube failed', e); 
-      } 
-    });
     if (logsBtn) logsBtn.addEventListener('click', () => {
       try {
         const text = (window.__logBuffer||[]).join('\n');
