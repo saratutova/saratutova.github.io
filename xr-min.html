@@ -19,7 +19,7 @@
 <body>
   <div id="overlay" style="position:fixed; inset:0; z-index: 20; pointer-events:auto;">
     <div id="hint">Tap Start AR, then Place</div>
-    <div id="build">xr-min build 94 + WIREFRAME ALIGNMENT: fixed Z-axis positioning to match airplane</div>
+    <div id="build">xr-min build 95 + WIREFRAME CORRECTED: front-bottom corner now aligns with airplane front-bottom edge</div>
     <div id="ui">
       <button id="start">Start AR</button>
       <button id="place" disabled>Place</button>
@@ -1164,13 +1164,13 @@
             const airplaneActualBottom = (window.realModelBottom || -0.04470553875435144);
             const airplaneActualFront = (window.realModelFront || 0.2817547595500946);
             
-                         // Position box so its front-bottom corner aligns with airplane's actual front-bottom
+                         // Position box so its front-bottom corner aligns with airplane's front-bottom edge
              // The airplane's child model is positioned with frontOffset = -actualFront
-             // So the wireframe should be positioned to match this
+             // So the wireframe needs to be positioned to match the airplane's actual position
              boundingBox.position.set(
                0,                          // Centered horizontally 
                boxHeight/2 + airplaneActualBottom * boxCurrentScale,  // Bottom edge at airplane bottom
-               0                           // Wireframe origin should be at container origin (0,0,0)
+               -airplaneActualFront * boxCurrentScale                  // Move wireframe back so front edge aligns with airplane front
              );
             
             boundingBox.userData = { isBoundingBox: true };
