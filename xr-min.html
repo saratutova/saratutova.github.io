@@ -19,7 +19,7 @@
 <body>
   <div id="overlay" style="position:fixed; inset:0; z-index: 20; pointer-events:auto;">
     <div id="hint">Tap Start AR, then Place</div>
-    <div id="build">xr-min build 87 + DISABLED rotation to test positioning</div>
+    <div id="build">xr-min build 88 + CORRECTED fallback values for airplane positioning</div>
     <div id="ui">
       <button id="start">Start AR</button>
       <button id="place" disabled>Place</button>
@@ -962,8 +962,8 @@
         // rotationQuaternion.setFromUnitVectors(defaultForward, airplaneForwardDirection); // DISABLED
         
         // USE UNIFIED POSITIONING SYSTEM
-        const actualBottom = window.realModelBottom || -0.0046; // From logs: airplane bottom
-        const actualFront = window.realModelFront || 0.0649;    // From logs: airplane front
+        const actualBottom = window.realModelBottom || -0.04470553875435144; // From logs: airplane bottom
+        const actualFront = window.realModelFront || 0.2817547595500946;    // From logs: airplane front
         
         // CRITICAL: Pass a deep copy to prevent corruption of original dimensions
         const cleanDimensions = {
@@ -1120,8 +1120,8 @@
         
         if (modelType === 'airplane') {
           // For centered airplane: use UNSCALED distances for positioning offsets
-          actualBottom = (window.realModelBottom || -0.0046); // Keep original size
-          actualFront = (window.realModelFront || 0.0649);     // Keep original size  
+          actualBottom = (window.realModelBottom || -0.04470553875435144); // Keep original size - CORRECTED
+          actualFront = (window.realModelFront || 0.2817547595500946);     // Keep original size - CORRECTED  
           centerX = 0; // Airplane is centered
         } else if (modelType.includes('testCube')) {
           actualBottom = (window[`realModelBottom${modelType.slice(-1)}`] || 0) * currentScale;
@@ -1256,8 +1256,8 @@
             // The bounding box should be positioned so its front-bottom corner is at origin (0,0,0)
             // which matches where the airplane's front-bottom should be after child positioning
             // For positioning, use original unscaled distances
-            const airplaneActualBottom = (window.realModelBottom || -0.0046);
-            const airplaneActualFront = (window.realModelFront || 0.0649);
+            const airplaneActualBottom = (window.realModelBottom || -0.04470553875435144);
+            const airplaneActualFront = (window.realModelFront || 0.2817547595500946);
             
             // Position box so its front-bottom corner aligns with container origin
             // For centered model: move box back so front edge is at circle
