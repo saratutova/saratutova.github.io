@@ -19,7 +19,7 @@
 <body>
   <div id="overlay" style="position:fixed; inset:0; z-index: 20; pointer-events:auto;">
     <div id="hint">Tap Start AR, then Place</div>
-    <div id="build">xr-min build 88 + CORRECTED fallback values for airplane positioning</div>
+    <div id="build">xr-min build 89 + SCALE CORRECTION: frontOffset now scaled properly</div>
     <div id="ui">
       <button id="start">Start AR</button>
       <button id="place" disabled>Place</button>
@@ -1165,22 +1165,21 @@
         
         // SPECIAL FIX: Airplane positioning  
         if (modelType === 'airplane') {
-          // FINAL CORRECTION: Based on user feedback, the airplane orientation is:
-          // +Z = NOSE (front of airplane) at +0.282 - actualFront IS the nose!
-          // -Z = TAIL (back of airplane) at -0.263
-          // User sees tail when airplane is positioned forward, so nose is at +Z
+          // CRITICAL: For airplane, actualFront/actualBottom are UNSCALED but child model IS SCALED!
+          // We need to apply currentScale to the offsets for proper positioning
           
           const actualNose = actualFront; // actualFront (+0.282) is the NOSE!
           const actualTail = window.realModelBack || -0.263; // The actual tail is at -Z
           
-          // Put NOSE at circle: frontOffset = -actualNose = -0.282
-          frontOffset = -actualNose; // Put nose AT the circle (same as cube logic)
-          groundOffset = -actualBottom - 2.0; // Extra 2m down for landing gear
+          // CORRECTED: Apply scale to positioning offsets!
+          frontOffset = -actualNose * currentScale; // Put nose AT the circle with proper scale
+          groundOffset = -actualBottom * currentScale - 2.0; // Scale the ground offset too
           
-          console.log(`[${logPrefix}] AIRPLANE ORIENTATION FINAL FIX:`);
-          console.log(`[${logPrefix}] - Nose at Z=${actualNose}, Tail at Z=${actualTail}`);
-          console.log(`[${logPrefix}] - Moving center BACK by ${-actualNose}m to put NOSE at circle`);
-          console.log(`[${logPrefix}] - actualFront IS the nose, using frontOffset = -actualFront`);
+          console.log(`[${logPrefix}] AIRPLANE POSITIONING WITH SCALE CORRECTION:`);
+          console.log(`[${logPrefix}] - Nose at Z=${actualNose} (unscaled), Tail at Z=${actualTail} (unscaled)`);
+          console.log(`[${logPrefix}] - Scale factor: ${currentScale.toFixed(3)}`);
+          console.log(`[${logPrefix}] - frontOffset = -${actualNose} × ${currentScale.toFixed(3)} = ${frontOffset.toFixed(3)}m`);
+          console.log(`[${logPrefix}] - Moving center BACK by ${frontOffset.toFixed(3)}m to put NOSE at circle`);
         }
         
         childModel.position.set(
