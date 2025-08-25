@@ -19,7 +19,7 @@
 <body>
   <div id="overlay" style="position:fixed; inset:0; z-index: 20; pointer-events:auto;">
     <div id="hint">Tap Start AR, then Place</div>
-    <div id="build">xr-min build 87</div>
+    <div id="build">xr-min build 87 + DISABLED rotation to test positioning</div>
     <div id="ui">
       <button id="start">Start AR</button>
       <button id="place" disabled>Place</button>
@@ -948,6 +948,7 @@
       
       // Position the airplane using UNIFIED POSITIONING SYSTEM
       if (target === model && modelLoaded) {
+        // TEMPORARILY DISABLE ROTATION TO TEST POSITIONING
         // Calculate rotation to face camera
         const cameraDirection = new THREE.Vector3();
         camera.getWorldDirection(cameraDirection);
@@ -957,8 +958,8 @@
         airplaneForwardDirection.normalize();
         
         const defaultForward = new THREE.Vector3(0, 0, 1);
-        const rotationQuaternion = new THREE.Quaternion();
-        rotationQuaternion.setFromUnitVectors(defaultForward, airplaneForwardDirection);
+        const rotationQuaternion = new THREE.Quaternion(); // Identity rotation (no rotation)
+        // rotationQuaternion.setFromUnitVectors(defaultForward, airplaneForwardDirection); // DISABLED
         
         // USE UNIFIED POSITIONING SYSTEM
         const actualBottom = window.realModelBottom || -0.0046; // From logs: airplane bottom
@@ -1173,7 +1174,7 @@
           const actualTail = window.realModelBack || -0.263; // The actual tail is at -Z
           
           // Put NOSE at circle: frontOffset = -actualNose = -0.282
-          //frontOffset = -actualNose; // Put nose AT the circle (same as cube logic)
+          frontOffset = -actualNose; // Put nose AT the circle (same as cube logic)
           groundOffset = -actualBottom - 2.0; // Extra 2m down for landing gear
           
           console.log(`[${logPrefix}] AIRPLANE ORIENTATION FINAL FIX:`);
