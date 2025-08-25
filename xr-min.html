@@ -19,12 +19,13 @@
 <body>
   <div id="overlay" style="position:fixed; inset:0; z-index: 20; pointer-events:auto;">
     <div id="hint">Tap Start AR, then Place</div>
-    <div id="build">xr-min build 91 + UNIFIED: airplane uses same positioning as cubes</div>
+    <div id="build">xr-min build 92 + TEST CUBE: added button + removed airplane scaling</div>
     <div id="ui">
       <button id="start">Start AR</button>
       <button id="place" disabled>Place</button>
       <button id="exit" disabled>Exit</button>
       <button id="logs">Download logs</button>
+      <button id="placeTestCubeBtn">Place Test Cube</button>
     </div>
   </div>
 
@@ -829,102 +830,16 @@
           target = cube;
       }
         
-        // Apply scaling to airplane model (only to the child mesh, not the container)
+        // NO SCALING for airplane - use original GLB size like cubes
       if (target === model) {
           const childModel = target.children[0]; // The airplane mesh inside the container
           if (childModel) {
-            // Reset child model scale and apply proper scaling
+            // Reset child model scale to 1 (no scaling)
             childModel.scale.setScalar(1);
-            console.log('[Place] reset child model scale to 1');
-            
-            // Apply base scale (force to real-world size)
-            try {
-              if (originalModelDimensions) {
-                // Real airplane scale
-                const expectedHeight = 13.53; // Real airplane height in meters
-                const realScaleFactor = expectedHeight / originalModelDimensions.y;
-                
-                // Apply correct 1:1 real-world scaling
-                const finalScaleFactor = realScaleFactor * defaultArScale;
-                
-                if (Number.isFinite(finalScaleFactor) && finalScaleFactor > 0) {
-                  childModel.scale.setScalar(finalScaleFactor);
-                  console.log('[Place] SCALING - original height:', originalModelDimensions.y.toFixed(3), 'm');
-                  console.log('[Place] Real scale factor:', realScaleFactor.toFixed(6), '(to 13.53m real size)');
-                  console.log('[Place] AR scale factor:', defaultArScale, '(1.0 = real world size)');
-                  console.log('[Place] Final scale factor:', finalScaleFactor.toFixed(6));
-                  console.log('[Place] Final airplane height:', (13.53 * defaultArScale).toFixed(3), 'm (REAL SIZE!)');
-                }
-              } else {
-                console.log('[Place] No original dimensions available, using default scale');
-                childModel.scale.setScalar(defaultArScale);
-              }
-            } catch(_) {
-              console.log('[Place] Failed to apply scaling');
-            }
-            
-            // Apply unit scale
-            try { 
-              if (unitScale && unitScale !== 1) { 
-                childModel.scale.multiplyScalar(unitScale); 
-                console.log('[Place] applied unitScale:', unitScale, 'new scale:', childModel.scale);
-              } else {
-                console.log('[Place] no unitScale applied, unitScale =', unitScale);
-              }
-            } catch(_){ }
-            
-            // Apply target max dimension scaling
-            try {
-              if (Number.isFinite(targetMaxDimMeters)) {
-                const bboxTmp = new THREE.Box3().setFromObject(childModel);
-                const sz = new THREE.Vector3(); 
-                bboxTmp.getSize(sz);
-                const maxDimNow = Math.max(sz.x, sz.y, sz.z) || 1;
-                const f = targetMaxDimMeters / maxDimNow;
-                if (Number.isFinite(f) && f > 0) { 
-                  childModel.scale.multiplyScalar(f); 
-                  console.log('[Place] applied targetMaxDim scale:', f.toFixed(6), 'target size:', targetMaxDimMeters, 'm, current max dim:', maxDimNow.toFixed(3), 'm');
-                  console.log('[Place] scale after targetMaxDim:', childModel.scale);
-                }
-              } else {
-                console.log('[Place] no targetMaxDimMeters applied, value =', targetMaxDimMeters);
-              }
-            } catch(_){ }
-            
-            // Apply manual scale parameter if provided
-        try {
-          const sp = url.searchParams.get('scale');
-          if (sp != null) {
-            const sf = parseFloat(sp);
-                if (Number.isFinite(sf) && sf > 0) { 
-                  childModel.scale.setScalar(sf); 
-                  console.log('[Place] applied scale param:', sf, 'new scale:', childModel.scale);
-                }
-          }
-        } catch(_) {}
-            
-            // Log final scale and calculated size (avoid setFromObject corruption)
-            try {
-              // CRITICAL: Calculate size from stored dimensions + scale to avoid geometry corruption
-              const scaledSize = {
-                x: originalModelDimensions.x * childModel.scale.x,
-                y: originalModelDimensions.y * childModel.scale.y,
-                z: originalModelDimensions.z * childModel.scale.z
-              };
-              
-              console.log('[Place] FINAL scale after all scaling:', childModel.scale);
-              console.log('[Place] CALCULATED model size (from stored dims):', scaledSize);
-              console.log('[Place] FINAL model dimensions: X=', scaledSize.x.toFixed(3), 'm, Y=', scaledSize.y.toFixed(3), 'm, Z=', scaledSize.z.toFixed(3), 'm');
-              
-              // Real-world scale verification
-              console.log('[Place] REAL-WORLD SCALE verification:');
-              console.log('[Place] - Your airplane is now', scaledSize.x.toFixed(2), 'm wide,', scaledSize.y.toFixed(2), 'm tall,', scaledSize.z.toFixed(2), 'm deep');
-              console.log('[Place] - This is REAL WORLD SIZE - same as the actual airplane!');
-              console.log('[Place] - A person is ~1.7m tall - this airplane is', (scaledSize.y/1.7).toFixed(1), 'times taller than a person');
-              console.log('[Place] - You should be able to walk under the wings and around the fuselage!');
-              console.log('[Place] - The cockpit should be about 3-4 meters above ground level');
-        } catch(_) {}
-      }
+            console.log('[Place] AIRPLANE: No scaling - using original GLB size like cubes');
+            console.log('[Place] Original dimensions:', originalModelDimensions);
+            console.log('[Place] Airplane will be displayed at original GLB scale (small size)');
+        }
         }
       
       // Check if we have a valid reticle position (not at origin)
@@ -1363,6 +1278,58 @@
       }
     }
 
+    function placeTestCube() {
+      try {
+        console.log('[PlaceTestCube] Starting test cube placement...');
+        
+        // Hide other objects
+        if (model) model.visible = false;
+        if (testCubeObj) testCubeObj.visible = false;
+        cube.visible = false;
+        
+        // Create a simple 1x1x1 meter cube for testing
+        const testCube = new THREE.Mesh(
+          new THREE.BoxGeometry(1, 1, 1),
+          new THREE.MeshBasicMaterial({ 
+            color: 0x00ff00, 
+            transparent: true, 
+            opacity: 0.8 
+          })
+        );
+        
+        // Position at reticle or camera fallback
+        let targetPosition = new THREE.Vector3();
+        let rotationQuaternion = new THREE.Quaternion();
+        
+        if (reticle.visible) {
+          targetPosition.copy(reticle.position);
+          rotationQuaternion.copy(reticle.quaternion);
+        } else {
+          // Fallback: place 2m in front of camera
+          camera.getWorldPosition(targetPosition);
+          const forward = new THREE.Vector3();
+          camera.getWorldDirection(forward);
+          targetPosition.add(forward.multiplyScalar(2));
+          targetPosition.y = Math.max(0, camera.position.y - 1.5);
+        }
+        
+        // Position the cube with front-bottom corner at target
+        testCube.position.copy(targetPosition);
+        testCube.position.y += 0.5; // Move up so bottom face is at ground
+        testCube.position.z -= 0.5; // Move back so front face is at target
+        
+        testCube.visible = true;
+        scene.add(testCube);
+        
+        console.log('[PlaceTestCube] Test cube placed at:', testCube.position);
+        console.log('[PlaceTestCube] Cube dimensions: 1×1×1 meters');
+        console.log('[PlaceTestCube] Front-bottom corner should be at spawn circle');
+        
+      } catch(err) {
+        console.log('[PlaceTestCube] Error:', err);
+      }
+    }
+
     function onXRFrame(t, frame){
       const session = frame.session; const pose = frame.getViewerPose(refSpace);
       if (hitSource && refSpace) {
@@ -1399,6 +1366,17 @@
     if (startBtn) startBtn.addEventListener('click', () => { console.log('[UI] Start AR clicked'); try { startAR(); } catch(e){ console.log('[UI] startAR failed', e); } });
     if (placeBtn) placeBtn.addEventListener('click', () => { console.log('[UI] Place clicked'); try { place(); } catch(e){ console.log('[UI] place failed', e); } });
     if (exitBtn) exitBtn.addEventListener('click', () => { console.log('[UI] Exit clicked'); try { const s = renderer.xr.getSession(); if (s) s.end(); } catch(_) {} });
+    
+    // Test cube button
+    const placeTestCubeBtn = document.getElementById('placeTestCubeBtn');
+    if (placeTestCubeBtn) placeTestCubeBtn.addEventListener('click', () => { 
+      console.log('[UI] Place Test Cube clicked'); 
+      try { 
+        placeTestCube(); 
+      } catch(e){ 
+        console.log('[UI] placeTestCube failed', e); 
+      } 
+    });
     if (logsBtn) logsBtn.addEventListener('click', () => {
       try {
         const text = (window.__logBuffer||[]).join('\n');
