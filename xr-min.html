@@ -19,7 +19,7 @@
 <body>
   <div id="overlay" style="position:fixed; inset:0; z-index: 20; pointer-events:auto;">
     <div id="hint">Tap Start AR, then Place</div>
-    <div id="build">xr-min build 100 + ACTUAL FIX: Now using actual model dimensions instead of vertex offsets for positioning</div>
+    <div id="build">xr-min build 101 + MAJOR SIMPLIFICATION: Single unified positioning function - all positioning in one place</div>
     <div id="ui">
       <button id="start">Start AR</button>
       <button id="place" disabled>Place</button>
@@ -961,8 +961,7 @@
       }
     }
     
-    // UNIFIED MODEL POSITIONING SYSTEM
-    // This function handles positioning for ANY model type consistently
+    // SINGLE UNIFIED POSITIONING FUNCTION - ALL positioning happens here
     function positionModel(config) {
       try {
         const {
@@ -977,7 +976,7 @@
           logPrefix           // string: for logging
         } = config;
         
-        console.log(`[${logPrefix}] UNIFIED POSITIONING START`);
+        console.log(`[${logPrefix}] SINGLE UNIFIED POSITIONING START`);
         console.log(`[${logPrefix}] - Model type: ${modelType}`);
         console.log(`[${logPrefix}] - Target position (reticle):`, targetPosition);
         console.log(`[${logPrefix}] - Original dimensions:`, originalDimensions);
@@ -989,15 +988,10 @@
           return false;
         }
         
-        // Special case: procedural cube is already positioned correctly
-        if (modelType === 'proceduralCube') {
-          console.log(`[${logPrefix}] PROCEDURAL CUBE: Already positioned correctly, skipping child positioning`);
-          childModel.visible = true;
-        } else {
-        
         // STEP 1: NO SCALING FOR AIRPLANE (use as-is like cubes)
         if (modelType === 'airplane') {
           console.log(`[${logPrefix}] AIRPLANE: NO SCALING - using original GLB scale like cubes`);
+          childModel.scale.setScalar(1); // Ensure no scaling
         } else if (expectedHeight) {
           childModel.scale.setScalar(1); // Reset scale
           const currentHeight = originalDimensions.y;
@@ -1012,203 +1006,82 @@
           console.log(`[${logPrefix}] NO SCALING - using original GLB scale`);
         }
         
-        // STEP 2: CHILD MODEL POSITIONING (front-bottom center pivot)
-        // Use STORED original dimensions instead of corrupted runtime bounding box
-        const currentScale = childModel.scale.x; // Current scale factor
-        
-        // Use stored original model dimensions (clean, never corrupted)
-        // CRITICAL: Create deep copy to prevent corruption of original reference
-        const cleanOriginalDims = {
-          x: originalDimensions.x,
-          y: originalDimensions.y, 
-          z: originalDimensions.z
-        };
+        // STEP 2: CALCULATE POSITIONING BASED ON ACTUAL MODEL DIMENSIONS
+        const currentScale = childModel.scale.x;
         const size = {
-          x: cleanOriginalDims.x * currentScale,
-          y: cleanOriginalDims.y * currentScale,
-          z: cleanOriginalDims.z * currentScale
+          x: originalDimensions.x * currentScale,
+          y: originalDimensions.y * currentScale,
+          z: originalDimensions.z * currentScale
         };
         
-                 // Calculate the model center based on ACTUAL MODEL DIMENSIONS (not vertex offsets)
-         let actualBottom, actualFront, centerX;
-         
-         if (modelType === 'airplane') {
-           // For airplane: use actual model dimensions for consistent positioning
-           actualBottom = -size.y / 2;  // Bottom edge is half height below center
-           actualFront = size.z / 2;    // Front edge is half depth in front of center
-           centerX = 0; // Airplane is centered
-           console.log(`[${logPrefix}] AIRPLANE: Using actual dimensions - bottom=${actualBottom.toFixed(3)}m, front=${actualFront.toFixed(3)}m`);
-         } else if (modelType.includes('testCube')) {
-           actualBottom = -size.y / 2;  // Bottom edge is half height below center
-           actualFront = size.z / 2;    // Front edge is half depth in front of center
-           
-           // Check if we're using old TESTBOX or new kostkaV2 files
-           const isOldTestBox = originalDimensions && originalDimensions.x > 1.0; // Old TESTBOX has ~1.035m width
-           if (isOldTestBox) {
-             centerX = 0.136 * currentScale; // Old TESTBOX off-center
-             console.log(`[${logPrefix}] Using old TESTBOX offsets`);
-           } else {
-             centerX = 0; // New kostkaV2 files might be properly centered
-             console.log(`[${logPrefix}] Using new kostkaV2 centered`);
-           }
-         } else {
-           // Default values
-           actualBottom = -size.y / 2;  // Bottom edge is half height below center
-           actualFront = size.z / 2;    // Front edge is half depth in front of center
-           centerX = 0;
-         }
+        // Use actual model dimensions for consistent positioning
+        const modelBottom = -size.y / 2;  // Bottom edge is half height below center
+        const modelFront = size.z / 2;    // Front edge is half depth in front of center
+        const centerX = 0; // Models are centered
         
-        console.log(`[${logPrefix}] Stored dims: ${size.x.toFixed(2)}×${size.y.toFixed(2)}×${size.z.toFixed(2)}m (scale=${currentScale.toFixed(3)})`);
+        console.log(`[${logPrefix}] Model dimensions: ${size.x.toFixed(2)}×${size.y.toFixed(2)}×${size.z.toFixed(2)}m (scale=${currentScale.toFixed(3)})`);
+        console.log(`[${logPrefix}] Calculated: bottom=${modelBottom.toFixed(3)}m, front=${modelFront.toFixed(3)}m`);
         
-        // Calculate positioning offsets using STORED data (never corrupted)
-        let frontOffset = -actualFront; // Front face at Z=0
-        let groundOffset = -actualBottom; // Bottom at Y=0 (default, will be overridden for airplane)
+        // STEP 3: POSITION CHILD MODEL (this creates the pivot point)
+        // For airplane: front-bottom edge should be at origin (0,0,0)
+        const frontOffset = -modelFront;  // Move front face to Z=0
+        const groundOffset = modelBottom; // Move bottom edge to Y=0
         
-        // SPECIAL FIX: Test cubes positioning
-        if (modelType.includes('testCube')) {
-          const isOldTestBox = originalDimensions && originalDimensions.x > 1.0;
-          if (isOldTestBox) {
-            // Old TESTBOX: needs orientation flip and distance adjustment
-            frontOffset = actualFront - size.z - 0.2; // Flip + move 20cm back
-            console.log(`[${logPrefix}] Old TESTBOX: flipped + 20cm back`);
-          } else {
-            // New kostkaV2: try front face directly at circle
-            frontOffset = -actualFront; // Front edge at circle center
-            console.log(`[${logPrefix}] New kostka: front at circle`);
-          }
-        }
+        console.log(`[${logPrefix}] Positioning child: front=${frontOffset.toFixed(3)}m, ground=${groundOffset.toFixed(3)}m`);
         
-                 // UNIFIED POSITIONING: Use same logic as cubes for airplane
-         if (modelType === 'airplane') {
-           console.log(`[${logPrefix}] AIRPLANE: Using actual dimensions for positioning`);
-           // Use the same simple logic as cubes: -actualFront to put front face at circle
-           frontOffset = -actualFront; // Standard positioning like cubes
-           // For airplane, actualBottom is now -size.y/2 (e.g., -6.77m for 13.53m height)
-           // so we want to move DOWN by that amount to reach ground level
-           groundOffset = actualBottom; // Move DOWN to ground level
-           
-           console.log(`[${logPrefix}] - actualFront: ${actualFront.toFixed(3)}m -> frontOffset: ${frontOffset.toFixed(3)}m`);
-           console.log(`[${logPrefix}] - actualBottom: ${actualBottom.toFixed(3)}m -> groundOffset: ${groundOffset.toFixed(3)}m`);
-         }
-        
-        childModel.position.set(
-          -centerX,            // Center the model horizontally using stored offset
-          groundOffset,        // Position for proper ground contact
-          frontOffset          // Move so correct face is at proper distance from camera
-        );
-        
+        // CRITICAL: Set child position FIRST (this creates the pivot)
+        childModel.position.set(0, groundOffset, frontOffset);
         childModel.visible = true;
         
-        console.log(`[${logPrefix}] Child positioned: ground=${groundOffset.toFixed(3)}m, front=${frontOffset.toFixed(3)}m, center=${(-centerX).toFixed(3)}m`);
-        
-        } // End of non-procedural cube positioning
-        
-        // STEP 3: CONTAINER POSITIONING (SIMPLIFIED PIVOT-BASED APPROACH)
-        // The key insight: container origin IS the front-bottom center after proper child positioning
-        
-        // Simply position and rotate the container - the child positioning makes the pivot correct
+        // STEP 4: POSITION CONTAINER (this moves the pivot to reticle)
+        // The container's origin (0,0,0) is now the front-bottom center of the model
         target.position.copy(targetPosition);
         target.quaternion.copy(rotationQuaternion);
         target.visible = true;
         
-        // Add transparent bounding box for airplane positioning verification
+        console.log(`[${logPrefix}] Container positioned at:`, target.position);
+        console.log(`[${logPrefix}] Child positioned at:`, childModel.position);
+        
+        // STEP 5: ADD BOUNDING BOX FOR AIRPLANE (visual verification)
         if (modelType === 'airplane') {
           try {
-            console.log(`[${logPrefix}] Starting bounding box creation...`);
-            console.log(`[${logPrefix}] Original dimensions:`, originalDimensions);
-            
-            // Get current scale from childModel
-            const boxCurrentScale = childModel.scale.x; // Current scale factor
-            console.log(`[${logPrefix}] Current scale:`, boxCurrentScale);
-            
-            // Remove any existing bounding box
+            // Remove existing bounding box
             const existingBox = target.children.find(child => child.userData && child.userData.isBoundingBox);
             if (existingBox) {
               target.remove(existingBox);
-              console.log(`[${logPrefix}] Removed existing bounding box`);
             }
             
-            // Create simple box geometry first
-            console.log(`[${logPrefix}] Creating BoxGeometry...`);
-            const boxWidth = originalDimensions.x * boxCurrentScale;
-            const boxHeight = originalDimensions.y * boxCurrentScale; 
-            const boxDepth = originalDimensions.z * boxCurrentScale;
-            console.log(`[${logPrefix}] Box dimensions: ${boxWidth.toFixed(2)} × ${boxHeight.toFixed(2)} × ${boxDepth.toFixed(2)}`);
-            
-            const boxGeometry = new THREE.BoxGeometry(boxWidth, boxHeight, boxDepth);
-            console.log(`[${logPrefix}] BoxGeometry created successfully`);
-            
-            // Create solid wireframe box like testCube parameter
-            console.log(`[${logPrefix}] Creating EdgesGeometry for solid box outline...`);
+            // Create bounding box geometry
+            const boxGeometry = new THREE.BoxGeometry(size.x, size.y, size.z);
             const edges = new THREE.EdgesGeometry(boxGeometry);
-            console.log(`[${logPrefix}] EdgesGeometry created successfully`);
-            
-            // Create material for solid box edges
-            console.log(`[${logPrefix}] Creating material...`);
             const boxMaterial = new THREE.LineBasicMaterial({ 
-              color: 0xff0000,  // Red box outline
-              transparent: true, 
-              opacity: 0.8,
-              linewidth: 3
+              color: 0xff0000, transparent: true, opacity: 0.8, linewidth: 3
             });
-            console.log(`[${logPrefix}] Material created successfully`);
-            
-            // Create line segments for box edges
-            console.log(`[${logPrefix}] Creating LineSegments for box edges...`);
             const boundingBox = new THREE.LineSegments(edges, boxMaterial);
-            console.log(`[${logPrefix}] Box edge LineSegments created successfully`);
             
-            // Position bounding box to show actual airplane boundaries
-            console.log(`[${logPrefix}] Positioning bounding box to match airplane...`);
-            
-            // The bounding box should be positioned so its front-bottom corner is at origin (0,0,0)
-            // which matches where the airplane's front-bottom should be after child positioning
-            // For positioning, use original unscaled distances
-            const airplaneActualBottom = (window.realModelBottom || -0.04470553875435144);
-            const airplaneActualFront = (window.realModelFront || 0.2817547595500946);
-            
-                         // Position box so its front-bottom corner aligns with airplane's front-bottom edge
-             // The airplane's child model is positioned with frontOffset = -actualFront
-             // So the wireframe needs to be positioned to match the airplane's actual position
-             
-             // CRITICAL FIX: For large models, we need to account for the box height properly
-             // The wireframe should be positioned so its bottom edge aligns with the airplane's bottom
-             // Since the airplane child is positioned with groundOffset = actualBottom (negative value), the wireframe
-             // needs to be positioned at Y = boxHeight/2 to align bottom edges
-             // 
-             // The bounding box should be positioned so its front-bottom corner is at (0,0,0) in the container
-             // which matches where the airplane's front-bottom should be after child positioning
-             boundingBox.position.set(
-               0,                          // Centered horizontally 
-               boxHeight/2,                // Bottom edge of wireframe at origin (0,0,0)
-               0                           // Front edge of wireframe at origin (0,0,0)
-             );
+            // Position bounding box so its front-bottom corner is at origin (0,0,0)
+            // This aligns with the airplane's front-bottom edge
+            boundingBox.position.set(0, size.y/2, 0);
             
             boundingBox.userData = { isBoundingBox: true };
-            boundingBox.renderOrder = 10000; // Render on top
-            console.log(`[${logPrefix}] Bounding box positioned at:`, boundingBox.position);
-            console.log(`[${logPrefix}] Box shows: front-bottom corner at airplane's actual front-bottom`);
-            
-            // Add to target
-            console.log(`[${logPrefix}] Adding to target...`);
+            boundingBox.renderOrder = 10000;
             target.add(boundingBox);
-            console.log(`[${logPrefix}] ✅ SOLID BOX OUTLINE ADDED SUCCESSFULLY: ${boxWidth.toFixed(2)}×${boxHeight.toFixed(2)}×${boxDepth.toFixed(2)}m`);
             
-          } catch (boundingBoxError) {
-            console.log(`[${logPrefix}] ❌ Bounding box creation failed at step:`, boundingBoxError);
-            console.log(`[${logPrefix}] Error details:`, boundingBoxError.message, boundingBoxError.stack);
+            console.log(`[${logPrefix}] ✅ Bounding box added: ${size.x.toFixed(2)}×${size.y.toFixed(2)}×${size.z.toFixed(2)}m`);
+            
+          } catch (error) {
+            console.log(`[${logPrefix}] ❌ Bounding box creation failed:`, error);
           }
         }
         
-        console.log(`[${logPrefix}] Container positioned at:`, target.position, '✓');
-        
+        console.log(`[${logPrefix}] SINGLE UNIFIED POSITIONING COMPLETE ✓`);
         return true;
         
       } catch (error) {
         console.log(`[${config.logPrefix}] POSITIONING ERROR:`, error);
         return false;
-      }
-    }
+       }
+     }
     
     function placeCube(cubeNumber) {
       try {
