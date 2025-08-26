@@ -19,7 +19,7 @@
 <body>
   <div id="overlay" style="position:fixed; inset:0; z-index: 20; pointer-events:auto;">
     <div id="hint">Tap Start AR, then Place</div>
-    <div id="build">xr-min build 95 + WIREFRAME CORRECTED: front-bottom corner now aligns with airplane front-bottom edge</div>
+    <div id="build">xr-min build 96 + CRITICAL FIX: wireframe positioning corrected for large models (54m airplane)</div>
     <div id="ui">
       <button id="start">Start AR</button>
       <button id="place" disabled>Place</button>
@@ -1167,10 +1167,15 @@
                          // Position box so its front-bottom corner aligns with airplane's front-bottom edge
              // The airplane's child model is positioned with frontOffset = -actualFront
              // So the wireframe needs to be positioned to match the airplane's actual position
+             
+             // CRITICAL FIX: For large models, we need to account for the box height properly
+             // The wireframe should be positioned so its bottom edge aligns with the airplane's bottom
+             // Since the airplane child is positioned with groundOffset = -actualBottom, the wireframe
+             // needs to be positioned at Y = boxHeight/2 to align bottom edges
              boundingBox.position.set(
                0,                          // Centered horizontally 
-               boxHeight/2 + airplaneActualBottom * boxCurrentScale,  // Bottom edge at airplane bottom
-               -airplaneActualFront * boxCurrentScale                  // Move wireframe back so front edge aligns with airplane front
+               boxHeight/2,                // Bottom edge of wireframe at origin (0,0,0)
+               -airplaneActualFront * boxCurrentScale  // Move wireframe back so front edge aligns with airplane front
              );
             
             boundingBox.userData = { isBoundingBox: true };
