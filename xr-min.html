@@ -19,7 +19,7 @@
 <body>
   <div id="overlay" style="position:fixed; inset:0; z-index: 20; pointer-events:auto;">
     <div id="hint">Tap Start AR, then Place</div>
-    <div id="build">xr-min build 97</div>
+    <div id="build">xr-min build 98</div>
     <div id="ui">
       <button id="start">Start AR</button>
       <button id="place" disabled>Place</button>
@@ -1061,7 +1061,7 @@
         
         // Calculate positioning offsets using STORED data (never corrupted)
         let frontOffset = -actualFront; // Front face at Z=0
-        let groundOffset = -actualBottom; // Bottom at Y=0
+        let groundOffset = -actualBottom; // Bottom at Y=0 (default, will be overridden for airplane)
         
         // SPECIAL FIX: Test cubes positioning
         if (modelType.includes('testCube')) {
@@ -1174,10 +1174,13 @@
              // The wireframe should be positioned so its bottom edge aligns with the airplane's bottom
              // Since the airplane child is positioned with groundOffset = actualBottom (negative value), the wireframe
              // needs to be positioned at Y = boxHeight/2 to align bottom edges
+             // 
+             // The bounding box should be positioned so its front-bottom corner is at (0,0,0) in the container
+             // which matches where the airplane's front-bottom should be after child positioning
              boundingBox.position.set(
                0,                          // Centered horizontally 
                boxHeight/2,                // Bottom edge of wireframe at origin (0,0,0)
-               -airplaneActualFront * boxCurrentScale  // Move wireframe back so front edge aligns with airplane front
+               0                           // Front edge of wireframe at origin (0,0,0)
              );
             
             boundingBox.userData = { isBoundingBox: true };
