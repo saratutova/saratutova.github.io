@@ -19,7 +19,7 @@
 <body>
   <div id="overlay" style="position:fixed; inset:0; z-index: 20; pointer-events:auto;">
     <div id="hint">Tap Start AR, then Place</div>
-    <div id="build">xr-min build 98</div>
+    <div id="build">xr-min build 100 + ACTUAL FIX: Now using actual model dimensions instead of vertex offsets for positioning</div>
     <div id="ui">
       <button id="start">Start AR</button>
       <button id="place" disabled>Place</button>
@@ -1029,33 +1029,34 @@
           z: cleanOriginalDims.z * currentScale
         };
         
-        // Calculate the model center based on stored vertex data
-        let actualBottom, actualFront, centerX;
-        
-        if (modelType === 'airplane') {
-          // For airplane: use same logic as cubes with scale factor 1
-          actualBottom = (window.realModelBottom || -0.04470553875435144) * currentScale;
-          actualFront = (window.realModelFront || 0.2817547595500946) * currentScale;
-          centerX = 0; // Airplane is centered
-        } else if (modelType.includes('testCube')) {
-          actualBottom = (window[`realModelBottom${modelType.slice(-1)}`] || 0) * currentScale;
-          actualFront = (window[`realModelFront${modelType.slice(-1)}`] || 0.486) * currentScale;
-          
-          // Check if we're using old TESTBOX or new kostkaV2 files
-          const isOldTestBox = originalDimensions && originalDimensions.x > 1.0; // Old TESTBOX has ~1.035m width
-          if (isOldTestBox) {
-            centerX = 0.136 * currentScale; // Old TESTBOX off-center
-            console.log(`[${logPrefix}] Using old TESTBOX offsets`);
-          } else {
-            centerX = 0; // New kostkaV2 files might be properly centered
-            console.log(`[${logPrefix}] Using new kostkaV2 centered`);
-          }
-        } else {
-          // Default values
-          actualBottom = 0;
-          actualFront = size.z / 2;
-          centerX = 0;
-        }
+                 // Calculate the model center based on ACTUAL MODEL DIMENSIONS (not vertex offsets)
+         let actualBottom, actualFront, centerX;
+         
+         if (modelType === 'airplane') {
+           // For airplane: use actual model dimensions for consistent positioning
+           actualBottom = -size.y / 2;  // Bottom edge is half height below center
+           actualFront = size.z / 2;    // Front edge is half depth in front of center
+           centerX = 0; // Airplane is centered
+           console.log(`[${logPrefix}] AIRPLANE: Using actual dimensions - bottom=${actualBottom.toFixed(3)}m, front=${actualFront.toFixed(3)}m`);
+         } else if (modelType.includes('testCube')) {
+           actualBottom = -size.y / 2;  // Bottom edge is half height below center
+           actualFront = size.z / 2;    // Front edge is half depth in front of center
+           
+           // Check if we're using old TESTBOX or new kostkaV2 files
+           const isOldTestBox = originalDimensions && originalDimensions.x > 1.0; // Old TESTBOX has ~1.035m width
+           if (isOldTestBox) {
+             centerX = 0.136 * currentScale; // Old TESTBOX off-center
+             console.log(`[${logPrefix}] Using old TESTBOX offsets`);
+           } else {
+             centerX = 0; // New kostkaV2 files might be properly centered
+             console.log(`[${logPrefix}] Using new kostkaV2 centered`);
+           }
+         } else {
+           // Default values
+           actualBottom = -size.y / 2;  // Bottom edge is half height below center
+           actualFront = size.z / 2;    // Front edge is half depth in front of center
+           centerX = 0;
+         }
         
         console.log(`[${logPrefix}] Stored dims: ${size.x.toFixed(2)}×${size.y.toFixed(2)}×${size.z.toFixed(2)}m (scale=${currentScale.toFixed(3)})`);
         
@@ -1077,18 +1078,18 @@
           }
         }
         
-        // UNIFIED POSITIONING: Use same logic as cubes for airplane
-        if (modelType === 'airplane') {
-          console.log(`[${logPrefix}] AIRPLANE: Using standard cube positioning logic (no special scaling)`);
-          // Use the same simple logic as cubes: -actualFront to put front face at circle
-          frontOffset = -actualFront; // Standard positioning like cubes
-          // FIXED: For airplane, actualBottom is already negative (e.g., -4.47m), 
-          // so we want to move DOWN by that amount to reach ground level
-          groundOffset = actualBottom; // Move DOWN to ground level
-          
-          console.log(`[${logPrefix}] - actualFront: ${actualFront} -> frontOffset: ${frontOffset}`);
-          console.log(`[${logPrefix}] - actualBottom: ${actualBottom} -> groundOffset: ${groundOffset}`);
-        }
+                 // UNIFIED POSITIONING: Use same logic as cubes for airplane
+         if (modelType === 'airplane') {
+           console.log(`[${logPrefix}] AIRPLANE: Using actual dimensions for positioning`);
+           // Use the same simple logic as cubes: -actualFront to put front face at circle
+           frontOffset = -actualFront; // Standard positioning like cubes
+           // For airplane, actualBottom is now -size.y/2 (e.g., -6.77m for 13.53m height)
+           // so we want to move DOWN by that amount to reach ground level
+           groundOffset = actualBottom; // Move DOWN to ground level
+           
+           console.log(`[${logPrefix}] - actualFront: ${actualFront.toFixed(3)}m -> frontOffset: ${frontOffset.toFixed(3)}m`);
+           console.log(`[${logPrefix}] - actualBottom: ${actualBottom.toFixed(3)}m -> groundOffset: ${groundOffset.toFixed(3)}m`);
+         }
         
         childModel.position.set(
           -centerX,            // Center the model horizontally using stored offset
