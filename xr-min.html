@@ -19,7 +19,7 @@
 <body>
   <div id="overlay" style="position:fixed; inset:0; z-index: 20; pointer-events:auto;">
     <div id="hint">Tap Start AR, then Place</div>
-    <div id="build">xr-min build 96 + CRITICAL FIX: wireframe positioning corrected for large models (54m airplane)</div>
+    <div id="build">xr-min build 97</div>
     <div id="ui">
       <button id="start">Start AR</button>
       <button id="place" disabled>Place</button>
@@ -1082,7 +1082,9 @@
           console.log(`[${logPrefix}] AIRPLANE: Using standard cube positioning logic (no special scaling)`);
           // Use the same simple logic as cubes: -actualFront to put front face at circle
           frontOffset = -actualFront; // Standard positioning like cubes
-          groundOffset = -actualBottom; // Standard ground positioning like cubes
+          // FIXED: For airplane, actualBottom is already negative (e.g., -4.47m), 
+          // so we want to move DOWN by that amount to reach ground level
+          groundOffset = actualBottom; // Move DOWN to ground level
           
           console.log(`[${logPrefix}] - actualFront: ${actualFront} -> frontOffset: ${frontOffset}`);
           console.log(`[${logPrefix}] - actualBottom: ${actualBottom} -> groundOffset: ${groundOffset}`);
@@ -1170,7 +1172,7 @@
              
              // CRITICAL FIX: For large models, we need to account for the box height properly
              // The wireframe should be positioned so its bottom edge aligns with the airplane's bottom
-             // Since the airplane child is positioned with groundOffset = -actualBottom, the wireframe
+             // Since the airplane child is positioned with groundOffset = actualBottom (negative value), the wireframe
              // needs to be positioned at Y = boxHeight/2 to align bottom edges
              boundingBox.position.set(
                0,                          // Centered horizontally 
