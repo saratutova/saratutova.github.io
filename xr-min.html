@@ -19,7 +19,7 @@
 <body>
   <div id="overlay" style="position:fixed; inset:0; z-index: 20; pointer-events:auto;">
     <div id="hint">Tap Start AR, then Place</div>
-    <div id="build">xr-min build 103 + POSITIONING FIX: Move model BACK so front face is at spawn circle (not toward camera)</div>
+    <div id="build">xr-min build 104 + GROUND FIX: Use Math.abs(modelBottom) to fix floating issue</div>
     <div id="ui">
       <button id="start">Start AR</button>
       <button id="place" disabled>Place</button>
@@ -1024,8 +1024,16 @@
         
         // STEP 3: POSITION CHILD MODEL (this creates the pivot point)
         // For airplane: front-bottom edge should be at origin (0,0,0)
-        const frontOffset = -modelFront;  // Move model BACK so front face is at Z=0
-        const groundOffset = -modelBottom; // Move model UP so bottom edge is at Y=0
+        
+        // GROUND POSITIONING: 
+        // modelBottom = -6.765m (bottom is 6.765m below center)
+        // To get bottom AT Y=0: move center UP by +6.765m
+        const groundOffset = Math.abs(modelBottom); // +6.765m (move center UP)
+        
+        // FRONT POSITIONING:
+        // modelFront = +27.243m (front is 27.243m in front of center) 
+        // To get front AT Z=0: move center BACK by -27.243m
+        const frontOffset = -modelFront; // -27.243m (move center BACK)
         
         console.log(`[${logPrefix}] Positioning child: front=${frontOffset.toFixed(3)}m, ground=${groundOffset.toFixed(3)}m`);
         
